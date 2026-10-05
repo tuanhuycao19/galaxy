@@ -6,25 +6,26 @@ Mục tiêu: một trang web hiển thị Hệ Mặt Trời bằng đồ hoạ 3
 
 ## 1. Lựa chọn công nghệ
 
-| Hạng mục | Lựa chọn | Lý do |
-|---|---|---|
-| Ngôn ngữ | **TypeScript** | Kiểu tĩnh, dễ bảo trì khi số module tăng |
-| Build tool | **Vite** | Khởi động nhanh, HMR, build tĩnh gọn để deploy |
-| Engine 3D | **Three.js** (WebGL 2) | Thư viện 3D web phổ biến nhất, tài liệu và ví dụ phong phú, nhẹ hơn Babylon.js |
-| Điều khiển camera | **OrbitControls** (three/examples) | Có sẵn xoay (chuột trái / 1 ngón), zoom (cuộn / pinch), pan (chuột phải / 2 ngón), có damping |
-| Nhãn hành tinh | **CSS2DRenderer** | Chữ HTML sắc nét, luôn quay về phía người xem |
-| Hiệu ứng | **EffectComposer + UnrealBloomPass** | Mặt Trời phát sáng (glow) |
-| Animation camera | **GSAP** (hoặc tween tự viết) | Bay mượt tới hành tinh khi chọn |
-| Bảng điều khiển | **lil-gui** (dev) + HTML/CSS thuần cho UI chính | Nhẹ, không cần framework UI |
-| Texture | Bộ texture của **Solar System Scope** (CC BY 4.0) | Miễn phí, chất lượng tốt, có license rõ ràng |
-| Kiểm thử | **Vitest** (logic quỹ đạo), **Playwright** (smoke test + screenshot) | |
-| Chất lượng code | ESLint + Prettier | |
-| Deploy | **GitHub Pages** qua GitHub Actions | Site tĩnh, miễn phí |
+| Hạng mục          | Lựa chọn                                                             | Lý do                                                                                         |
+| ----------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Ngôn ngữ          | **TypeScript**                                                       | Kiểu tĩnh, dễ bảo trì khi số module tăng                                                      |
+| Build tool        | **Vite**                                                             | Khởi động nhanh, HMR, build tĩnh gọn để deploy                                                |
+| Engine 3D         | **Three.js** (WebGL 2)                                               | Thư viện 3D web phổ biến nhất, tài liệu và ví dụ phong phú, nhẹ hơn Babylon.js                |
+| Điều khiển camera | **OrbitControls** (three/examples)                                   | Có sẵn xoay (chuột trái / 1 ngón), zoom (cuộn / pinch), pan (chuột phải / 2 ngón), có damping |
+| Nhãn hành tinh    | **CSS2DRenderer**                                                    | Chữ HTML sắc nét, luôn quay về phía người xem                                                 |
+| Hiệu ứng          | **EffectComposer + UnrealBloomPass**                                 | Mặt Trời phát sáng (glow)                                                                     |
+| Animation camera  | **GSAP** (hoặc tween tự viết)                                        | Bay mượt tới hành tinh khi chọn                                                               |
+| Bảng điều khiển   | **lil-gui** (dev) + HTML/CSS thuần cho UI chính                      | Nhẹ, không cần framework UI                                                                   |
+| Texture           | Bộ texture của **Solar System Scope** (CC BY 4.0)                    | Miễn phí, chất lượng tốt, có license rõ ràng                                                  |
+| Kiểm thử          | **Vitest** (logic quỹ đạo), **Playwright** (smoke test + screenshot) |                                                                                               |
+| Chất lượng code   | ESLint + Prettier                                                    |                                                                                               |
+| Deploy            | **GitHub Pages** qua GitHub Actions                                  | Site tĩnh, miễn phí                                                                           |
 
 **Phương án thay thế đã cân nhắc:**
-- *React Three Fiber*: phù hợp nếu sau này cần nhiều UI React phức tạp; hiện tại Three.js thuần đơn giản hơn và ít phụ thuộc.
-- *Babylon.js*: mạnh, có inspector tốt, nhưng bundle lớn hơn và cộng đồng ví dụ "solar system" ít hơn.
-- *CesiumJS*: chuyên bản đồ địa cầu, không phù hợp.
+
+- _React Three Fiber_: phù hợp nếu sau này cần nhiều UI React phức tạp; hiện tại Three.js thuần đơn giản hơn và ít phụ thuộc.
+- _Babylon.js_: mạnh, có inspector tốt, nhưng bundle lớn hơn và cộng đồng ví dụ "solar system" ít hơn.
+- _CesiumJS_: chuyên bản đồ địa cầu, không phù hợp.
 
 **Vấn đề tỉ lệ:** khoảng cách và kích thước thật chênh lệch quá lớn (Mặt Trời ~109 lần Trái Đất, Sao Hải Vương cách ~30 AU). Giải pháp: dùng **tỉ lệ nén** (khoảng cách theo hàm log/căn, bán kính phóng đại) làm mặc định, có nút chuyển sang **tỉ lệ thật**; bật `logarithmicDepthBuffer` để tránh z-fighting.
 
@@ -53,6 +54,7 @@ galaxy/
 ## 3. Bốn phase
 
 ### Phase 1 — Nền tảng & scene 3D cơ bản
+
 **Mục tiêu:** có trang web chạy được, thấy Mặt Trời và 8 hành tinh dạng khối cầu, xoay/zoom được.
 
 - Khởi tạo Vite + TypeScript, ESLint/Prettier, cài `three`.
@@ -65,6 +67,7 @@ galaxy/
 **Kết quả bàn giao:** demo chạy local, thao tác chuột/cảm ứng xoay & zoom mượt.
 
 ### Phase 2 — Mô phỏng chuyển động & đồ hoạ chân thực
+
 **Mục tiêu:** hệ mặt trời "sống" và đẹp.
 
 - Áp texture cho từng hành tinh (color map; Trái Đất thêm normal/specular map và lớp mây).
@@ -78,6 +81,7 @@ galaxy/
 **Kết quả bàn giao:** các hành tinh có texture, chuyển động trên quỹ đạo theo thời gian.
 
 ### Phase 3 — Tương tác & giao diện người dùng
+
 **Mục tiêu:** người dùng khám phá được hệ mặt trời.
 
 - **Click chọn hành tinh** bằng `Raycaster` → camera **bay mượt** tới và bám theo hành tinh (OrbitControls target theo hành tinh).
@@ -90,6 +94,7 @@ galaxy/
 **Kết quả bàn giao:** ứng dụng hoàn chỉnh về chức năng.
 
 ### Phase 4 — Hiệu ứng, tối ưu & triển khai
+
 **Mục tiêu:** đẹp, nhanh, chạy ổn trên nhiều thiết bị và public lên web.
 
 - **Bloom** cho Mặt Trời (UnrealBloomPass), shader bề mặt Mặt Trời động, lớp khí quyển (Fresnel glow) cho Trái Đất.
@@ -105,6 +110,7 @@ galaxy/
 ---
 
 ## 4. Tiêu chí hoàn thành chung
+
 - Zoom in/out bằng cuộn chuột và pinch; xoay bằng kéo chuột/1 ngón; pan bằng chuột phải/2 ngón.
 - 8 hành tinh + Mặt Trời + Mặt Trăng + vành đai Sao Thổ hiển thị 3D có texture và ánh sáng.
 - Chọn hành tinh xem thông tin; điều khiển tốc độ thời gian.
