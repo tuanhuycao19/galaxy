@@ -1,93 +1,239 @@
+import type { OrbitalElements } from '../physics/orbit';
+
+/** Hand-made texture recipe, used until a real image map is available. */
+export type ProceduralSurface =
+  | {
+      kind: 'rocky';
+      /** Colour stops from low to high noise values. */
+      palette: number[];
+      /** Base noise frequency; higher = finer detail. */
+      frequency: number;
+      /** Latitude (deg) above which the surface turns into ice caps. */
+      polarCapLatDeg?: number;
+    }
+  | {
+      kind: 'banded';
+      /** Colour stops from south pole to north pole. */
+      palette: number[];
+      /** How strongly noise distorts the bands. */
+      turbulence: number;
+      /** Optional storm oval, e.g. Jupiter's Great Red Spot. */
+      spot?: { latDeg: number; lonDeg: number; widthDeg: number; heightDeg: number; color: number };
+    };
+
+export interface ImageSurface {
+  kind: 'image';
+  /** Paths relative to `public/`. */
+  map: string;
+  normalMap?: string;
+  specularMap?: string;
+  cloudsMap?: string;
+}
+
+export type SurfaceSpec = ProceduralSurface | ImageSurface;
+
 export interface PlanetData {
   name: string;
   /** Mean radius in km. */
   radiusKm: number;
-  /** Semi-major axis in AU. */
-  semiMajorAxisAu: number;
-  /** Sidereal orbital period in Earth days. */
-  orbitalPeriodDays: number;
-  /** Sidereal rotation period in hours (negative = retrograde). */
+  /**
+   * Sidereal rotation period in hours. Always positive: retrograde spin is
+   * encoded by an axial tilt above 90° (IAU convention), as for Venus and Uranus.
+   */
   rotationPeriodHours: number;
-  /** Axial tilt in degrees. */
+  /** Axial tilt in degrees, relative to the orbital plane. */
   axialTiltDeg: number;
-  /** Placeholder colour until textures arrive in phase 2. */
-  color: number;
+  /** Keplerian elements at the J2000 epoch. */
+  orbit: OrbitalElements;
+  surface: SurfaceSpec;
+  rings?: { innerRadiusKm: number; outerRadiusKm: number };
 }
 
 export const SUN_RADIUS_KM = 695_700;
 export const EARTH_RADIUS_KM = 6_371;
 
+// Orbital elements: JPL "Keplerian Elements for Approximate Positions of the
+// Major Planets" (Standish), table valid 1800–2050 AD.
 export const PLANETS: readonly PlanetData[] = [
   {
     name: 'Sao Thủy',
     radiusKm: 2_439.7,
-    semiMajorAxisAu: 0.387,
-    orbitalPeriodDays: 87.97,
     rotationPeriodHours: 1_407.6,
     axialTiltDeg: 0.03,
-    color: 0x9e9e9e,
+    orbit: {
+      semiMajorAxisAu: 0.38709927,
+      eccentricity: 0.20563593,
+      inclinationDeg: 7.00497902,
+      meanLongitudeDeg: 252.2503235,
+      longitudeOfPerihelionDeg: 77.45779628,
+      longitudeOfAscendingNodeDeg: 48.33076593,
+      periodDays: 87.969,
+    },
+    surface: { kind: 'rocky', palette: [0x4a4642, 0x8a837b, 0xb9b2a8], frequency: 6 },
   },
   {
     name: 'Sao Kim',
     radiusKm: 6_051.8,
-    semiMajorAxisAu: 0.723,
-    orbitalPeriodDays: 224.7,
-    rotationPeriodHours: -5_832.5,
-    axialTiltDeg: 177.4,
-    color: 0xe3c07b,
+    rotationPeriodHours: 5_832.5,
+    axialTiltDeg: 177.36,
+    orbit: {
+      semiMajorAxisAu: 0.72333566,
+      eccentricity: 0.00677672,
+      inclinationDeg: 3.39467605,
+      meanLongitudeDeg: 181.9790995,
+      longitudeOfPerihelionDeg: 131.60246718,
+      longitudeOfAscendingNodeDeg: 76.67984255,
+      periodDays: 224.701,
+    },
+    surface: {
+      kind: 'banded',
+      palette: [0xc9a46a, 0xe6c88f, 0xf1dcae, 0xe2c085, 0xd1ab70, 0xe8cd98, 0xc9a46a],
+      turbulence: 0.35,
+    },
   },
   {
     name: 'Trái Đất',
     radiusKm: 6_371,
-    semiMajorAxisAu: 1.0,
-    orbitalPeriodDays: 365.26,
-    rotationPeriodHours: 23.93,
+    rotationPeriodHours: 23.934,
     axialTiltDeg: 23.44,
-    color: 0x3a7bd5,
+    orbit: {
+      semiMajorAxisAu: 1.00000261,
+      eccentricity: 0.01671123,
+      inclinationDeg: -0.00001531,
+      meanLongitudeDeg: 100.46457166,
+      longitudeOfPerihelionDeg: 102.93768193,
+      longitudeOfAscendingNodeDeg: 0,
+      periodDays: 365.256,
+    },
+    surface: {
+      kind: 'image',
+      map: 'textures/earth_atmos_2048.jpg',
+      normalMap: 'textures/earth_normal_2048.jpg',
+      specularMap: 'textures/earth_specular_2048.jpg',
+      cloudsMap: 'textures/earth_clouds_1024.png',
+    },
   },
   {
     name: 'Sao Hỏa',
     radiusKm: 3_389.5,
-    semiMajorAxisAu: 1.524,
-    orbitalPeriodDays: 686.98,
-    rotationPeriodHours: 24.62,
+    rotationPeriodHours: 24.623,
     axialTiltDeg: 25.19,
-    color: 0xc1440e,
+    orbit: {
+      semiMajorAxisAu: 1.52371034,
+      eccentricity: 0.0933941,
+      inclinationDeg: 1.84969142,
+      meanLongitudeDeg: -4.55343205,
+      longitudeOfPerihelionDeg: -23.94362959,
+      longitudeOfAscendingNodeDeg: 49.55953891,
+      periodDays: 686.98,
+    },
+    surface: {
+      kind: 'rocky',
+      palette: [0x5a2410, 0x9c4a22, 0xc1703c, 0xd99a62],
+      frequency: 4,
+      polarCapLatDeg: 78,
+    },
   },
   {
     name: 'Sao Mộc',
     radiusKm: 69_911,
-    semiMajorAxisAu: 5.204,
-    orbitalPeriodDays: 4_332.59,
-    rotationPeriodHours: 9.93,
+    rotationPeriodHours: 9.925,
     axialTiltDeg: 3.13,
-    color: 0xd8ca9d,
+    orbit: {
+      semiMajorAxisAu: 5.202887,
+      eccentricity: 0.04838624,
+      inclinationDeg: 1.30439695,
+      meanLongitudeDeg: 34.39644051,
+      longitudeOfPerihelionDeg: 14.72847983,
+      longitudeOfAscendingNodeDeg: 100.47390909,
+      periodDays: 4_332.59,
+    },
+    surface: {
+      kind: 'banded',
+      palette: [
+        0x8a7a66, 0xb89b78, 0xe8dcc4, 0xa86f4c, 0xf0e6d2, 0xc08a5c, 0xeadfc8, 0x9e6a48, 0xe9dcc2,
+        0xb48d6c, 0x8a7a66,
+      ],
+      turbulence: 0.22,
+      spot: { latDeg: -22, lonDeg: 60, widthDeg: 22, heightDeg: 11, color: 0xc0583a },
+    },
   },
   {
     name: 'Sao Thổ',
     radiusKm: 58_232,
-    semiMajorAxisAu: 9.583,
-    orbitalPeriodDays: 10_759.22,
-    rotationPeriodHours: 10.66,
+    rotationPeriodHours: 10.656,
     axialTiltDeg: 26.73,
-    color: 0xe8d8a8,
+    orbit: {
+      semiMajorAxisAu: 9.53667594,
+      eccentricity: 0.05386179,
+      inclinationDeg: 2.48599187,
+      meanLongitudeDeg: 49.95424423,
+      longitudeOfPerihelionDeg: 92.59887831,
+      longitudeOfAscendingNodeDeg: 113.66242448,
+      periodDays: 10_759.22,
+    },
+    surface: {
+      kind: 'banded',
+      palette: [0x9c8a6a, 0xcdb88e, 0xe6d3a6, 0xd4bd8c, 0xeddcb2, 0xcfb688, 0xe3cf9f, 0xb8a37a],
+      turbulence: 0.12,
+    },
+    rings: { innerRadiusKm: 74_500, outerRadiusKm: 140_220 },
   },
   {
     name: 'Sao Thiên Vương',
     radiusKm: 25_362,
-    semiMajorAxisAu: 19.191,
-    orbitalPeriodDays: 30_688.5,
-    rotationPeriodHours: -17.24,
+    rotationPeriodHours: 17.24,
     axialTiltDeg: 97.77,
-    color: 0x9fe3e8,
+    orbit: {
+      semiMajorAxisAu: 19.18916464,
+      eccentricity: 0.04725744,
+      inclinationDeg: 0.77263783,
+      meanLongitudeDeg: 313.23810451,
+      longitudeOfPerihelionDeg: 170.9542763,
+      longitudeOfAscendingNodeDeg: 74.01692503,
+      periodDays: 30_688.5,
+    },
+    surface: {
+      kind: 'banded',
+      palette: [0x8fd3da, 0xa6e1e6, 0xb3e8ec, 0xa6e1e6, 0x93d6dd],
+      turbulence: 0.05,
+    },
   },
   {
     name: 'Sao Hải Vương',
     radiusKm: 24_622,
-    semiMajorAxisAu: 30.07,
-    orbitalPeriodDays: 60_182,
     rotationPeriodHours: 16.11,
     axialTiltDeg: 28.32,
-    color: 0x4b70dd,
+    orbit: {
+      semiMajorAxisAu: 30.06992276,
+      eccentricity: 0.00859048,
+      inclinationDeg: 1.77004347,
+      meanLongitudeDeg: -55.12002969,
+      longitudeOfPerihelionDeg: 44.96476227,
+      longitudeOfAscendingNodeDeg: 131.78422574,
+      periodDays: 60_182,
+    },
+    surface: {
+      kind: 'banded',
+      palette: [0x2a4fb0, 0x3c66cc, 0x4f7ade, 0x3a62c6, 0x5584e0, 0x3a62c6, 0x2a4fb0],
+      turbulence: 0.18,
+      spot: { latDeg: -20, lonDeg: 200, widthDeg: 14, heightDeg: 7, color: 0x1c3378 },
+    },
   },
 ];
+
+export const MOON = {
+  name: 'Mặt Trăng',
+  radiusKm: 1_737.4,
+  /** Sidereal month; the Moon is tidally locked so this is also its spin period. */
+  orbitalPeriodDays: 27.3217,
+  /** Inclination to the ecliptic. */
+  inclinationDeg: 5.145,
+  map: 'textures/moon_1024.jpg',
+} as const;
+
+export const SUN_SURFACE: ProceduralSurface = {
+  kind: 'rocky',
+  palette: [0xd9480f, 0xf59f00, 0xffd43b, 0xfff3bf],
+  frequency: 10,
+};

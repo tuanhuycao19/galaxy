@@ -1,3 +1,5 @@
+import type * as THREE from 'three';
+import type { Vec3 } from '../physics/orbit';
 import { EARTH_RADIUS_KM } from './planets';
 
 /**
@@ -20,4 +22,15 @@ export function scaledRadius(radiusKm: number): number {
 /** Orbit radius in scene units (Earth ≈ 28, Neptune ≈ 149). */
 export function scaledDistance(semiMajorAxisAu: number): number {
   return ORBIT_OFFSET + ORBIT_FACTOR * Math.pow(semiMajorAxisAu, ORBIT_EXPONENT);
+}
+
+/**
+ * Maps a heliocentric ecliptic position (AU) into scene space: keeps the
+ * direction, compresses the distance, and turns ecliptic-north (z) into +Y.
+ */
+export function toScenePosition(au: Vec3, target: THREE.Vector3): THREE.Vector3 {
+  const r = Math.hypot(au.x, au.y, au.z);
+  if (r === 0) return target.set(0, 0, 0);
+  const k = scaledDistance(r) / r;
+  return target.set(au.x * k, au.z * k, -au.y * k);
 }

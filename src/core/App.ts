@@ -2,16 +2,29 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PLANETS } from '../data/planets';
 import { SUN_RADIUS } from '../data/scale';
-import { createPlanet } from '../objects/Planet';
-import { createSun } from '../objects/Sun';
+import { Moon } from '../objects/Moon';
+import { Planet } from '../objects/Planet';
+import { createStarfield } from '../objects/Starfield';
+import { Sun } from '../objects/Sun';
+import { ControlPanel } from '../ui/ControlPanel';
+import { SimulationClock } from './SimulationClock';
 
 const MAX_PIXEL_RATIO = 2;
+/** Cap per-frame time so a backgrounded tab doesn't jump months ahead. */
+const MAX_FRAME_SECONDS = 0.1;
 
 export class App {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera: THREE.PerspectiveCamera;
   private readonly controls: OrbitControls;
+  private readonly clock = new SimulationClock();
+  private readonly sun = new Sun();
+  private readonly planets: Planet[];
+  private readonly moon: Moon;
+  private readonly orbitLines = new THREE.Group();
+  private readonly panel: ControlPanel;
+  private lastTime: number | null = null;
 
   constructor(private readonly container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
@@ -28,7 +41,14 @@ export class App {
     this.controls.maxDistance = 600;
     this.controls.zoomToCursor = true;
 
+    this.planets = PLANETS.map((data, i) => new Planet(data, i + 2));
+    const earth = this.planets.find((p) => p.data.name === 'Trái Đất')!;
+    this.moon = new Moon(earth.radius);
+    earth.object.add(this.moon.object);
+
     this.buildScene();
+    this.panel = new ControlPanel(this.clock, (visible) => (this.orbitLines.visible = visible));
+
     this.resize();
     window.addEventListener('resize', this.resize);
   }
@@ -38,14 +58,14 @@ export class App {
   }
 
   private buildScene(): void {
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.15));
-    this.scene.add(createSun());
-
-    // Spread planets around the Sun so they don't line up; motion arrives in phase 2.
-    PLANETS.forEach((data, i) => {
-      const angle = (i / PLANETS.length) * Math.PI * 2 * 3;
-      this.scene.add(createPlanet(data, angle));
-    });
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+    this.scene.add(createStarfield());
+    this.scene.add(this.sun.object);
+    this.scene.add(this.orbitLines);
+    for (const planet of this.planets) {
+      this.scene.add(planet.object);
+      this.orbitLines.add(planet.orbitLine);
+    }
   }
 
   private readonly resize = (): void => {
@@ -55,7 +75,17 @@ export class App {
     this.renderer.setSize(width, height);
   };
 
-  private readonly tick = (): void => {
+  private readonly tick = (time: number): void => {
+    const delta = this.lastTime === null ? 0 : (time - this.lastTime) / 1000;
+    this.lastTime = time;
+    this.clock.advance(Math.min(delta, MAX_FRAME_SECONDS));
+
+    const days = this.clock.days;
+    this.sun.update(days);
+    for (const planet of this.planets) planet.update(days);
+    this.moon.update(days);
+    this.panel.update(this.clock.date);
+
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   };

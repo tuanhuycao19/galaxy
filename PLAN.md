@@ -53,7 +53,7 @@ galaxy/
 
 ## 3. Bốn phase
 
-### Phase 1 — Nền tảng & scene 3D cơ bản
+### Phase 1 — Nền tảng & scene 3D cơ bản ✅
 
 **Mục tiêu:** có trang web chạy được, thấy Mặt Trời và 8 hành tinh dạng khối cầu, xoay/zoom được.
 
@@ -66,7 +66,7 @@ galaxy/
 
 **Kết quả bàn giao:** demo chạy local, thao tác chuột/cảm ứng xoay & zoom mượt.
 
-### Phase 2 — Mô phỏng chuyển động & đồ hoạ chân thực
+### Phase 2 — Mô phỏng chuyển động & đồ hoạ chân thực ✅
 
 **Mục tiêu:** hệ mặt trời "sống" và đẹp.
 
@@ -79,6 +79,8 @@ galaxy/
 - Unit test cho `physics/orbit.ts`.
 
 **Kết quả bàn giao:** các hành tinh có texture, chuyển động trên quỹ đạo theo thời gian.
+
+> Ghi chú triển khai: môi trường build không tải được texture Solar System Scope, nên Trái Đất và Mặt Trăng dùng texture từ ví dụ của three.js (MIT); Mặt Trời và các hành tinh còn lại dùng texture sinh thủ tục (procedural) trong Web Worker. Có thể thay bằng ảnh thật bằng cách đổi `surface` sang `kind: 'image'` trong `src/data/planets.ts`.
 
 ### Phase 3 — Tương tác & giao diện người dùng
 
