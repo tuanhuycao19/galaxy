@@ -255,7 +255,7 @@ export class SurfaceView {
   }
 
   arrive(t: number): void {
-    this.pose(easeInOutCubic(t));
+    this.pose(easeInOutSine(t));
     if (t >= 1) {
       this.controls.target.copy(FINAL_TARGET);
       this.controls.enabled = true;
@@ -276,7 +276,8 @@ export class SurfaceView {
   }
 
   depart(t: number): void {
-    this.pose(t * t);
+    // Ease in only: keep climbing into the haze.
+    this.pose(1 - Math.cos((t * Math.PI) / 2));
   }
 
   /** Interpolate camera between `from` and `to`, altitude on a log scale. */
@@ -327,6 +328,6 @@ function createNightStars(): THREE.Points {
   return stars;
 }
 
-function easeInOutCubic(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function easeInOutSine(t: number): number {
+  return -(Math.cos(Math.PI * t) - 1) / 2;
 }

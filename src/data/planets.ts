@@ -29,6 +29,8 @@ export interface ImageSurface {
   normalMap?: string;
   specularMap?: string;
   cloudsMap?: string;
+  /** City lights, shown only on the night side. */
+  nightMap?: string;
 }
 
 export type SurfaceSpec = ProceduralSurface | ImageSurface;
@@ -136,6 +138,7 @@ export const PLANETS: readonly PlanetData[] = [
       map: 'textures/earth_atmos_2048.webp',
       normalMap: 'textures/earth_normal_2048.webp',
       specularMap: 'textures/earth_specular_2048.webp',
+      nightMap: 'textures/earth_lights_2048.webp',
       cloudsMap: 'textures/earth_clouds_1024.png',
     },
     atmosphere: { color: 0x5aa8ff, intensity: 1.3 },

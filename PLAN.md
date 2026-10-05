@@ -134,3 +134,4 @@ galaxy/
 - Điểm đến: bãi biển Mỹ Khê, Đà Nẵng (16,05°B, 108,25°Đ). Nhãn "🏖 Gia đình" gắn trên bề mặt Trái Đất, phím `G`.
 - Chuyển cảnh: camera lao xuống điểm đến trong không gian → lớp mây che → cảnh bãi biển (đơn vị mét) → hạ xuống trước gia đình. Zoom ra / `Esc` để quay lại.
 - Cảnh bãi biển: bầu trời vật lý (`Sky`), biển phản chiếu (`Water`), bãi cát trắng dốc xuống biển, biệt thự 2 tầng, sàn gỗ và bể bơi, cây dừa, ô dù, ghế tắm nắng, gia đình 4 người có hoạt cảnh; bóng đổ; ngày/hoàng hôn/đêm theo giờ mô phỏng.
+- Cải tiến: zoom theo chặng (Châu Á → Việt Nam → mặt đất) với tiêu đề, chậm bằng ~½ tốc độ cũ, zoom logarit + easing nhẹ, dựng sẵn cảnh bãi biển, làm mượt thời gian khung hình, đèn thành phố ban đêm, bay ngược lên theo cùng kiểu.

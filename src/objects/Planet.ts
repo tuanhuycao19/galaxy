@@ -14,13 +14,6 @@ import { applySurfaceTexture } from './textures/factory';
 const DEG = Math.PI / 180;
 /** Clouds drift slightly faster than the ground so they visibly move. */
 const CLOUD_DRIFT = 1.08;
-/**
- * At high time scales real spin rates turn into strobing (Earth would spin
- * 365 times a second at "1 year/s"), so cap the visible spin per frame.
- * Below the cap the spin eases back to the true rotation phase.
- */
-const MAX_SPIN_PER_FRAME = 0.12;
-const PHASE_CORRECTION_PER_FRAME = 0.02;
 const TWO_PI = Math.PI * 2;
 // One shared, fairly dense sphere: ~9k triangles per body is cheap even on
 // phones and keeps silhouettes smooth when zoomed in, so no LOD levels needed.
@@ -118,20 +111,14 @@ export class Planet implements CelestialBody {
     toScenePosition(heliocentricPosition(this.data.orbit, days), this.mode, this.object.position);
 
     const target = primeMeridianAngle(this.data.rotation, days);
-    let applied: number;
-    if (this.lastDays === null) {
-      applied = target - this.spin;
-    } else {
-      const step = this.data.rotation.wRateDegPerDay * DEG * (days - this.lastDays);
-      if (Math.abs(step) <= MAX_SPIN_PER_FRAME) {
-        const drift = wrapPi(target - (this.spin + step));
-        applied =
-          step +
-          THREE.MathUtils.clamp(drift, -PHASE_CORRECTION_PER_FRAME, PHASE_CORRECTION_PER_FRAME);
-      } else {
-        applied = Math.sign(step) * MAX_SPIN_PER_FRAME;
-      }
-    }
+    const applied =
+      this.lastDays === null
+        ? target - this.spin
+        : spinStep(
+            this.spin,
+            target,
+            this.data.rotation.wRateDegPerDay * DEG * (days - this.lastDays),
+          );
     this.lastDays = days;
     this.spin = (this.spin + applied) % TWO_PI;
     this.pickTarget.rotation.y = this.spin;
@@ -187,18 +174,62 @@ function createMaterial(data: PlanetData, seed: number): THREE.Material {
     return material;
   }
   // Phong supports a specular map, which makes oceans glint and land stay matte.
-  return new THREE.MeshPhongMaterial({
+  const material = new THREE.MeshPhongMaterial({
     map: loadTexture(surface.map),
     normalMap: surface.normalMap ? loadTexture(surface.normalMap, false) : null,
     specularMap: surface.specularMap ? loadTexture(surface.specularMap, false) : null,
     specular: 0x333333,
     shininess: 18,
   });
+  if (surface.nightMap) addNightLights(material, loadTexture(surface.nightMap));
+  return material;
+}
+
+/**
+ * City lights as an emissive map, faded out on the day side. The Sun sits
+ * at the world origin, so its view-space position is `viewMatrix * origin`.
+ */
+function addNightLights(material: THREE.MeshPhongMaterial, lights: THREE.Texture): void {
+  material.emissiveMap = lights;
+  material.emissive.setRGB(1, 0.86, 0.62);
+  material.emissiveIntensity = 1.4;
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      /* glsl */ `#include <emissivemap_fragment>
+      {
+        vec3 toSun = normalize((viewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz + vViewPosition);
+        float night = smoothstep(0.12, -0.18, dot(normal, toSun));
+        totalEmissiveRadiance *= night;
+      }`,
+    );
+  };
 }
 
 /** Heliocentric ecliptic → scene axes (see `toScenePosition`). */
 function toScene(v: Vec3): THREE.Vector3 {
   return new THREE.Vector3(v.x, v.z, -v.y);
+}
+
+/**
+ * At high time scales real spin rates turn into strobing (Earth would spin
+ * 365 times a second at "1 year/s"), so the visible spin per frame is
+ * capped. Below the cap the planet eases back to its true rotation phase,
+ * smoothly but within about a second, so the day/night line matches the
+ * clock again soon after slowing down.
+ */
+export const MAX_SPIN_PER_FRAME = 0.12;
+const PHASE_CATCH_UP = 0.06;
+const MAX_CATCH_UP_PER_FRAME = 0.15;
+
+/** How far to turn this frame, given the true step and the true phase `target`. */
+export function spinStep(spin: number, target: number, step: number): number {
+  if (Math.abs(step) > MAX_SPIN_PER_FRAME) return Math.sign(step) * MAX_SPIN_PER_FRAME;
+  const drift = wrapPi(target - (spin + step));
+  return (
+    step +
+    THREE.MathUtils.clamp(drift * PHASE_CATCH_UP, -MAX_CATCH_UP_PER_FRAME, MAX_CATCH_UP_PER_FRAME)
+  );
 }
 
 function wrapPi(a: number): number {

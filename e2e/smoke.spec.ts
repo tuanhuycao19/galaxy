@@ -101,7 +101,8 @@ test.describe('mobile layout', () => {
 });
 
 test('zooms from space down to the family on the beach and back', async ({ page }) => {
-  test.setTimeout(180_000);
+  // The trip is a deliberately slow, staged zoom; software rendering in CI is slower still.
+  test.setTimeout(300_000);
   const errors = await open(page);
   const html = page.locator('html');
 
@@ -110,7 +111,8 @@ test('zooms from space down to the family on the beach and back', async ({ page 
   await expect(page.locator('.info-panel__title')).toContainText('Mỹ Khê');
   await expect(page.locator('.toolbar__speed-label')).toHaveText('Thời gian thực');
 
-  await expect(html).toHaveAttribute('data-view', 'surface', { timeout: 90_000 });
+  await expect(page.locator('.caption__title')).toHaveText('Châu Á', { timeout: 30_000 });
+  await expect(html).toHaveAttribute('data-view', 'surface', { timeout: 150_000 });
   await expect(page.locator('.info-panel')).toContainText('Giờ địa phương');
   // Space labels are hidden on the beach.
   await expect(page.locator('.labels')).toBeHidden();
@@ -118,7 +120,7 @@ test('zooms from space down to the family on the beach and back', async ({ page 
   expect(shot.byteLength).toBeGreaterThan(20_000);
 
   await page.locator('.toolbar .button', { hasText: 'Toàn cảnh' }).click();
-  await expect(html).toHaveAttribute('data-view', 'space', { timeout: 60_000 });
+  await expect(html).toHaveAttribute('data-view', 'space', { timeout: 120_000 });
   await expect(page.locator('.toolbar__speed-label')).toHaveText('1 ngày/giây');
   expect(errors).toEqual([]);
 });

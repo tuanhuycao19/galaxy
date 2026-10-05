@@ -10,6 +10,7 @@ import { SiteMarker } from '../objects/SiteMarker';
 import { createStarfield } from '../objects/Starfield';
 import { Sun } from '../objects/Sun';
 import { BodyList } from '../ui/BodyList';
+import { CaptionView } from '../ui/Caption';
 import { Fade } from '../ui/Fade';
 import { InfoPanel } from '../ui/InfoPanel';
 import { bindShortcuts } from '../ui/keyboard';
@@ -32,6 +33,12 @@ import { SurfaceTrip } from './SurfaceTrip';
 /** Cap per-frame time so a backgrounded tab doesn't jump months ahead. */
 const MAX_FRAME_SECONDS = 0.1;
 const MAX_ANIMATION_STEP = 0.5;
+/**
+ * Camera animations use a smoothed frame time: a one-off hitch (GC, shader
+ * compile) is spread over the next frames instead of making the camera jump,
+ * while a steadily slow device still animates in real time.
+ */
+const ANIMATION_SMOOTHING = 0.15;
 const OVERVIEW_CAMERA = new THREE.Vector3(0, 90, 190);
 const HELP_SEEN_KEY = 'galaxy.helpSeen';
 
@@ -68,6 +75,7 @@ export class App {
   private showOrbits = true;
   private showLabels = true;
   private lastTime: number | null = null;
+  private animationStep = 1 / 60;
 
   constructor(
     private readonly container: HTMLElement,
@@ -88,7 +96,14 @@ export class App {
       this.renderer
         .compileAsync(this.scene, this.camera)
         .catch(() => {})
-        .finally(() => loading.finish());
+        .finally(() => {
+          loading.finish();
+          // Build the beach scene in the background so the zoom never stalls.
+          const prepare = () => void this.trip.prepare();
+          if ('requestIdleCallback' in window)
+            window.requestIdleCallback(prepare, { timeout: 4000 });
+          else setTimeout(prepare, 1500);
+        });
     };
 
     // A tiny near plane lets the camera get close to true-scale planets
@@ -129,6 +144,7 @@ export class App {
     const select = (body: CelestialBody) => this.select(body);
     this.labels = new Labels(this.container, this.bodies, select);
     const fade = new Fade(this.container);
+    const caption = new CaptionView(this.container);
     this.bodyList = new BodyList(
       uiRoot,
       [
@@ -153,7 +169,7 @@ export class App {
     const coarse = window.matchMedia('(pointer: coarse)').matches;
     this.quality = new QualityController(coarse ? 'medium' : 'high', () => this.applyQuality());
     this.trip = new SurfaceTrip({
-      domElement: this.renderer.domElement,
+      renderer: this.renderer,
       pipeline: this.pipeline,
       spaceView: this.spaceView,
       spaceCamera: this.camera,
@@ -162,6 +178,7 @@ export class App {
       earth,
       site: this.site,
       fade,
+      caption,
       quality: () => this.quality.level,
       size: () => ({ width: this.container.clientWidth, height: this.container.clientHeight }),
       onBackInSpace: (after) => this.backInSpace(after),
@@ -363,11 +380,15 @@ export class App {
 
     const days = this.clock.days;
     this.updateBodies(days, time / 1000);
-    // Transitions follow wall-clock time (with a looser cap than the
-    // simulation) so they take the same time on slow devices.
-    this.trip.update(Math.min(frameSeconds, MAX_ANIMATION_STEP), time / 1000, days);
+    // Transitions follow (smoothed) wall-clock time, with a looser cap than
+    // the simulation, so they take the same time on slow devices.
+    if (frameSeconds > 0) {
+      const step = Math.min(frameSeconds, MAX_ANIMATION_STEP);
+      this.animationStep += (step - this.animationStep) * ANIMATION_SMOOTHING;
+    }
+    this.trip.update(this.animationStep, time / 1000, days);
     // The dive drives the space camera itself; otherwise the rig does.
-    if (this.trip.state === 'space') this.rig.update(delta);
+    if (this.trip.state === 'space') this.rig.update(this.animationStep);
     this.site.update(this.camera);
     this.picker.enabled = this.trip.state === 'space';
     this.infoPanel.update(days, delta);

@@ -42,7 +42,7 @@ export class CameraRig {
   /** Flies to `body`, approaching from its sunlit side, then follows it. */
   focus(body: CelestialBody): void {
     const center = body.object.getWorldPosition(new THREE.Vector3());
-    const offset = this.litSideDirection(center).multiplyScalar(body.viewDistance);
+    const offset = this.approachDirection(center).multiplyScalar(body.viewDistance);
     this.startFlight(body, center, offset);
   }
 
@@ -50,6 +50,16 @@ export class CameraRig {
   reset(): void {
     const offset = this.overview.camera.clone();
     this.startFlight(null, new THREE.Vector3(), offset);
+  }
+
+  /** Starts following `body` from wherever the camera is, without a flight. */
+  attach(body: CelestialBody): void {
+    this.flight = null;
+    this.following = body;
+    body.object.getWorldPosition(this.lastFollowPosition);
+    this.controls.target.copy(this.lastFollowPosition);
+    this.controls.enabled = true;
+    this.applyControlMode();
   }
 
   /** Stops following without moving the camera. */
@@ -143,7 +153,7 @@ export class CameraRig {
   }
 
   /** Direction from the body towards the camera, favouring the side facing the Sun. */
-  private litSideDirection(center: THREE.Vector3): THREE.Vector3 {
+  approachDirection(center: THREE.Vector3): THREE.Vector3 {
     if (center.lengthSq() === 0) {
       // The Sun itself: keep the current viewing direction.
       return this.tmp.subVectors(this.camera.position, this.controls.target).normalize().clone();

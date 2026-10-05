@@ -437,6 +437,10 @@ kbd {
   background: radial-gradient(circle at 50% 45%, #ffffff 0%, #e2f0ff 50%, #a9cdf0 100%);
 }
 
+.fade--night {
+  background: radial-gradient(circle at 50% 45%, #2b3a5c 0%, #172340 55%, #0a1022 100%);
+}
+
 .label__chip--site {
   background: rgba(60, 40, 10, 0.7);
   border-color: #f5d58a;
@@ -456,4 +460,37 @@ kbd {
     border-top: 0;
     border-left: 1px solid var(--panel-border);
   }
+}
+
+.caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 16%;
+  text-align: center;
+  pointer-events: none;
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75);
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+}
+
+.caption.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.caption__title {
+  font-size: clamp(26px, 5vw, 46px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.caption__subtitle {
+  margin-top: 4px;
+  font-size: clamp(14px, 2vw, 18px);
+  color: rgba(255, 255, 255, 0.85);
 }

@@ -41,7 +41,10 @@ Lần đầu chạy e2e trên máy mới: `npx playwright install chromium`.
 
 ## Zoom xuống gia đình trên Trái Đất
 
-Chọn **🏖 Gia đình ở biển** (danh sách bên trái, nhãn trên Trái Đất, hoặc phím `G`): camera lao xuống bãi biển Mỹ Khê (Đà Nẵng), xuyên qua lớp mây rồi hạ xuống trước một gia đình bốn người đứng trên bãi cát trắng, phía sau là ngôi nhà có bể bơi, bên cạnh là biển.
+Chọn **🏖 Gia đình ở biển** (danh sách bên trái, nhãn trên Trái Đất, hoặc phím `G`): camera zoom theo từng chặng — **Châu Á → Việt Nam (Đà Nẵng) → xuyên qua mây → bãi biển Mỹ Khê** — mỗi chặng có tiêu đề và dừng một nhịp, rồi hạ xuống trước một gia đình bốn người đứng trên bãi cát trắng, phía sau là ngôi nhà có bể bơi, bên cạnh là biển. Cả chuyến đi xuống mất khoảng 20 giây.
+
+- Zoom theo thang logarit (đều "×N mỗi giây"), easing nhẹ, tốc độ tối đa bằng khoảng một nửa phiên bản đầu (`src/core/diveSchedule.ts`, có test). Cảnh bãi biển được dựng và biên dịch shader trước khi rảnh, nên lúc chuyển cảnh không bị khựng; thời gian khung hình được làm mượt để một lần giật không làm camera nhảy.
+- Ban đêm, phía tối Trái Đất có đèn thành phố, nên vẫn thấy rõ châu lục; lớp mây chuyển màu xanh đêm thay vì trắng.
 
 - Hai thang đo chênh nhau ~10⁷ lần (hành tinh vs. con người) — vượt độ chính xác số thực của GPU — nên bãi biển là **một cảnh riêng tính bằng mét** (`src/surface/`). Lớp "mây" che khoảnh khắc chuyển cảnh.
 - **Ánh sáng theo giờ thật**: hướng và cao độ Mặt Trời tại bãi biển tính từ quỹ đạo Trái Đất + mô hình quay IAU (`src/physics/rotation.ts`): trưa nắng gắt, hoàng hôn phía tây, đêm có sao, đèn nhà và đèn bể bơi bật sáng. Trên bãi biển, thời gian chạy **theo thời gian thực** (có thể tua nhanh để xem mặt trời lặn).
@@ -67,7 +70,7 @@ Workflow `.github/workflows/ci.yml` chạy format, lint, typecheck, unit test, b
 
 ## Nguồn texture
 
-- Trái Đất, Mặt Trăng: [three.js examples](https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets) (MIT).
+- Trái Đất (ngày, đêm/đèn thành phố, mây), Mặt Trăng: [three.js examples](https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets) (MIT).
 - Mặt Trời, các hành tinh khác và vành đai Sao Thổ: sinh thủ tục (`src/objects/textures/procedural.ts`).
 - Normal map mặt biển (`waternormals`): [three.js examples](https://github.com/mrdoob/three.js/tree/dev/examples/textures) (MIT).
 - Hướng trục quay và kinh tuyến gốc các hành tinh: IAU WGCCRE 2015.
