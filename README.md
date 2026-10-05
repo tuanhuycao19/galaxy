@@ -14,15 +14,26 @@ npm test         # unit test (Vitest)
 
 ## Điều khiển
 
-- Kéo chuột trái / 1 ngón: xoay
-- Cuộn chuột / chụm 2 ngón: zoom
-- Chuột phải / kéo 2 ngón: di chuyển (pan)
-- Bảng "Điều khiển" (góc trên phải): tạm dừng, tốc độ thời gian, về hôm nay, bật/tắt quỹ đạo
+| Thao tác                    | Chuột / cảm ứng                            | Phím          |
+| --------------------------- | ------------------------------------------ | ------------- |
+| Xoay góc nhìn               | Kéo chuột trái / 1 ngón                    |               |
+| Zoom                        | Cuộn chuột / chụm 2 ngón                   |               |
+| Di chuyển (khi không chọn)  | Chuột phải / kéo 2 ngón                    |               |
+| Chọn thiên thể, bay tới     | Bấm vào thiên thể, nhãn tên hoặc danh sách | `0`–`9`       |
+| Bỏ chọn                     | Nút × trên bảng thông tin                  | `Esc`         |
+| Tạm dừng / chạy             | Nút ▶ / ❚❚                                 | `Space`       |
+| Tốc độ thời gian            | Thanh trượt (1 giờ → 1 năm mỗi giây)       | `+` / `-`     |
+| Quỹ đạo · Nhãn · Tỉ lệ thật | Nút trên thanh công cụ                     | `O`, `L`, `T` |
+| Về toàn cảnh                | Nút "Toàn cảnh"                            | `R`           |
+| Hướng dẫn                   | Nút `?`                                    | `H`           |
 
 ## Mô phỏng
 
 - Vị trí hành tinh tính theo quỹ đạo Kepler từ bộ tham số JPL (J2000), bắt đầu từ thời điểm hiện tại.
-- Khoảng cách và kích thước được nén (xem `src/data/scale.ts`) để nhìn thấy mọi hành tinh cùng lúc.
+- Hai chế độ tỉ lệ (`src/data/scale.ts`):
+  - **Nén** (mặc định): kích thước và khoảng cách được nén để nhìn thấy mọi hành tinh cùng lúc.
+  - **Thật**: cùng một tỉ lệ cho tất cả (1 AU = 5 đơn vị) — các hành tinh chỉ là chấm nhỏ; bấm vào nhãn để bay tới.
+- Khi chọn một thiên thể, camera bay tới và bám theo nó trên quỹ đạo; bảng thông tin cập nhật khoảng cách theo thời gian thực.
 
 ## Nguồn texture
 

@@ -1,3 +1,22 @@
+:root {
+  --bg: #000;
+  --text: #e8eaf0;
+  --text-muted: #9aa3b5;
+  --panel-bg: rgba(14, 18, 28, 0.78);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --accent: #ffc94d;
+  --button-bg: rgba(255, 255, 255, 0.06);
+  --button-bg-hover: rgba(255, 255, 255, 0.14);
+  --gutter: 16px;
+  /* Measured by the toolbar at runtime; panels stack above it. */
+  --toolbar-height: 56px;
+  --above-toolbar: calc(
+    max(var(--gutter), env(safe-area-inset-bottom)) + var(--toolbar-height) + 8px
+  );
+  --radius: 10px;
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -7,14 +26,15 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #000;
-  color: #e6e6e6;
+  background: var(--bg);
+  color: var(--text);
   font-family:
     system-ui,
     -apple-system,
     'Segoe UI',
     Roboto,
     sans-serif;
+  font-size: 14px;
 }
 
 #app {
@@ -27,18 +47,352 @@ body {
   touch-action: none;
 }
 
-.hint {
+/* ---------- Overlay layout ---------- */
+
+#ui {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  inset: 0;
+  pointer-events: none;
+  padding: max(var(--gutter), env(safe-area-inset-top))
+    max(var(--gutter), env(safe-area-inset-right)) max(var(--gutter), env(safe-area-inset-bottom))
+    max(var(--gutter), env(safe-area-inset-left));
+}
+
+.panel {
+  position: absolute;
+  pointer-events: auto;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.button,
+.icon-button,
+.body-list__button,
+.label__chip {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: var(--button-bg);
+}
+
+.button {
+  padding: 6px 10px;
+  white-space: nowrap;
+  min-height: 32px;
+}
+
+.button:hover,
+.icon-button:hover,
+.body-list__button:hover {
+  background: var(--button-bg-hover);
+}
+
+.button[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+:is(.button, .icon-button, .body-list__button, .label__chip, input):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.icon-button {
+  width: 30px;
+  height: 30px;
+  font-size: 20px;
+  line-height: 1;
+  background: transparent;
+}
+
+kbd {
+  font:
+    11px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: var(--text-muted);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+/* ---------- Body list ---------- */
+
+.body-list {
+  top: max(var(--gutter), env(safe-area-inset-top));
+  left: max(var(--gutter), env(safe-area-inset-left));
+  padding: 6px;
+}
+
+.body-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 10px 14px;
+}
+
+.body-list__button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.body-list__button[aria-current='true'] {
+  background: var(--button-bg-hover);
+  color: var(--accent);
+}
+
+/* ---------- Info panel ---------- */
+
+.info-panel {
+  top: max(var(--gutter), env(safe-area-inset-top));
+  right: max(var(--gutter), env(safe-area-inset-right));
+  width: 320px;
+  max-height: calc(100% - var(--above-toolbar) - 2 * var(--gutter));
+  overflow: auto;
+  padding: 12px 14px 14px;
+}
+
+.info-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.info-panel__title {
+  margin: 0;
+  font-size: 20px;
+  color: var(--accent);
+}
+
+.info-panel__rows,
+.help dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 12px 0;
+}
+
+.info-panel__rows dt,
+.help dt {
+  color: var(--text-muted);
+}
+
+.info-panel__rows dd,
+.help dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-panel__description {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* ---------- Toolbar ---------- */
+
+.toolbar {
+  bottom: max(var(--gutter), env(safe-area-inset-bottom));
+  /* left/right + auto margins centre it without capping the width at 50%. */
+  left: max(var(--gutter), env(safe-area-inset-left));
+  right: max(var(--gutter), env(safe-area-inset-right));
+  width: fit-content;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  padding: 8px 10px;
+}
+
+.toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar__speed {
+  width: 110px;
+  accent-color: var(--accent);
+}
+
+.toolbar__speed-label {
+  min-width: 84px;
+  color: var(--text-muted);
+}
+
+.toolbar__date {
+  min-width: 128px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Help ---------- */
+
+.help {
+  /* Centred in the space above the toolbar. */
+  inset: var(--gutter) 0 var(--above-toolbar);
+  margin: auto;
+  width: min(440px, calc(100% - 2 * var(--gutter)));
+  height: fit-content;
+  max-height: calc(100% - var(--above-toolbar) - var(--gutter));
+  overflow: auto;
+  padding: 12px 14px 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+.help__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.help h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.help__start {
+  width: 100%;
+}
+
+.help dl {
   font-size: 13px;
-  line-height: 1.4;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+}
+
+/* ---------- Labels ---------- */
+
+.labels {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
+}
+
+.label {
+  padding-bottom: 8px;
+  position: relative;
+}
+
+/* Marker on the body's centre, so specks in true scale are findable. */
+.label::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.label__chip {
+  pointer-events: auto;
+  padding: 2px 8px;
+  font-size: 12px;
+  background: rgba(10, 14, 22, 0.6);
+  border-color: rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+}
+
+.label__chip:hover,
+.label.is-selected .label__chip {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---------- Narrow screens ---------- */
+
+@media (max-width: 719px) {
+  /* Body list becomes a horizontally scrolling strip across the top. */
+  .body-list {
+    right: max(var(--gutter), env(safe-area-inset-right));
+    padding: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .body-list__items {
+    flex-direction: row;
+  }
+
+  .body-list__button kbd {
+    display: none;
+  }
+
+  .body-list__button {
+    padding: 6px 10px;
+  }
+
+  /* Info panel becomes a bottom sheet above the toolbar. */
+  .info-panel {
+    top: auto;
+    right: max(var(--gutter), env(safe-area-inset-right));
+    left: max(var(--gutter), env(safe-area-inset-left));
+    bottom: var(--above-toolbar);
+    width: auto;
+    max-height: 38vh;
+  }
+
+  .info-panel__description {
+    font-size: 13px;
+  }
+
+  .toolbar {
+    width: auto;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .toolbar__group {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .toolbar .button {
+    padding: 4px 8px;
+    font-size: 13px;
+    min-height: 30px;
+  }
+
+  .toolbar__speed {
+    width: 72px;
+  }
+
+  .toolbar__speed-label {
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  .toolbar__date {
+    min-width: 0;
+    font-size: 12px;
+  }
+}
+
+/* Keyboard shortcuts are irrelevant on touch-only devices. */
+@media (pointer: coarse) {
+  .help .is-keyboard {
+    display: none;
+  }
 }

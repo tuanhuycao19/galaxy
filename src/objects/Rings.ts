@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import { createSaturnRingTexture } from './textures/factory';
 
 /**
- * Flat ring in the planet's equatorial plane (local XZ). `kmToScene`
- * converts real ring radii into the planet's scaled size.
+ * Flat ring in the planet's equatorial plane (local XZ), sized in planet
+ * radii so it scales together with the planet.
  */
-export function createRings(innerKm: number, outerKm: number, kmToScene: number): THREE.Mesh {
-  const inner = innerKm * kmToScene;
-  const outer = outerKm * kmToScene;
+export function createRings(innerKm: number, outerKm: number, planetRadiusKm: number): THREE.Mesh {
+  const inner = innerKm / planetRadiusKm;
+  const outer = outerKm / planetRadiusKm;
   const geometry = new THREE.RingGeometry(inner, outer, 128, 1);
 
   // RingGeometry maps UVs as a square decal; remap so u runs from inner to outer edge.

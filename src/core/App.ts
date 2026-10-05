@@ -1,17 +1,26 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PLANETS } from '../data/planets';
-import { SUN_RADIUS } from '../data/scale';
+import type { ScaleMode } from '../data/scale';
+import type { CelestialBody } from '../objects/CelestialBody';
 import { Moon } from '../objects/Moon';
 import { Planet } from '../objects/Planet';
 import { createStarfield } from '../objects/Starfield';
 import { Sun } from '../objects/Sun';
-import { ControlPanel } from '../ui/ControlPanel';
+import { BodyList } from '../ui/BodyList';
+import { InfoPanel } from '../ui/InfoPanel';
+import { bindShortcuts } from '../ui/keyboard';
+import { Labels } from '../ui/Labels';
+import { DEFAULT_SPEED_INDEX, SPEEDS, Toolbar, type ToggleName } from '../ui/Toolbar';
+import { CameraRig } from './CameraRig';
+import { Picker } from './Picker';
 import { SimulationClock } from './SimulationClock';
 
 const MAX_PIXEL_RATIO = 2;
 /** Cap per-frame time so a backgrounded tab doesn't jump months ahead. */
 const MAX_FRAME_SECONDS = 0.1;
+const OVERVIEW_CAMERA = new THREE.Vector3(0, 90, 190);
+const HELP_SEEN_KEY = 'galaxy.helpSeen';
 
 export class App {
   private readonly renderer: THREE.WebGLRenderer;
@@ -19,35 +28,76 @@ export class App {
   private readonly camera: THREE.PerspectiveCamera;
   private readonly controls: OrbitControls;
   private readonly clock = new SimulationClock();
-  private readonly sun = new Sun();
+  private scaleMode: ScaleMode = 'compressed';
+  private readonly sun: Sun;
   private readonly planets: Planet[];
   private readonly moon: Moon;
+  /** Index = keyboard shortcut: 0 Sun, 1–8 planets, 9 Moon. */
+  private readonly bodies: CelestialBody[];
   private readonly orbitLines = new THREE.Group();
-  private readonly panel: ControlPanel;
+  private readonly rig: CameraRig;
+  private readonly labels: Labels;
+  private readonly infoPanel: InfoPanel;
+  private readonly bodyList: BodyList;
+  private readonly toolbar: Toolbar;
+  private selected: CelestialBody | null = null;
+  private speedIndex = DEFAULT_SPEED_INDEX;
+  private showOrbits = true;
+  private showLabels = true;
   private lastTime: number | null = null;
 
-  constructor(private readonly container: HTMLElement) {
+  constructor(
+    private readonly container: HTMLElement,
+    uiRoot: HTMLElement,
+  ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
     this.container.appendChild(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
-    this.camera.position.set(0, 90, 190);
+    // A tiny near plane lets the camera get close to true-scale planets
+    // (Earth ≈ 0.0002 units); the logarithmic depth buffer keeps precision.
+    this.camera = new THREE.PerspectiveCamera(45, 1, 1e-6, 1e5);
+    this.camera.position.copy(OVERVIEW_CAMERA);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.minDistance = SUN_RADIUS * 1.6;
     this.controls.maxDistance = 600;
-    this.controls.zoomToCursor = true;
 
-    this.planets = PLANETS.map((data, i) => new Planet(data, i + 2));
+    this.sun = new Sun(this.scaleMode);
+    this.planets = PLANETS.map((data, i) => new Planet(data, i + 2, this.scaleMode));
     const earth = this.planets.find((p) => p.data.name === 'Trái Đất')!;
-    this.moon = new Moon(earth.radius);
-    earth.object.add(this.moon.object);
-
+    this.moon = new Moon(earth, this.scaleMode);
+    earth.object.add(this.moon.orbit);
+    this.bodies = [this.sun, ...this.planets, this.moon];
     this.buildScene();
-    this.panel = new ControlPanel(this.clock, (visible) => (this.orbitLines.visible = visible));
+
+    this.rig = new CameraRig(this.camera, this.controls, {
+      camera: OVERVIEW_CAMERA,
+      freeMinDistance: () => this.sun.radius * 1.3,
+    });
+    this.rig.release();
+
+    const select = (body: CelestialBody) => this.select(body);
+    this.labels = new Labels(this.container, this.bodies, select);
+    this.bodyList = new BodyList(uiRoot, this.bodies, select);
+    this.infoPanel = new InfoPanel(uiRoot, () => this.deselect());
+    this.toolbar = new Toolbar(uiRoot, {
+      onTogglePause: () => this.togglePause(),
+      onSpeedChange: (i) => this.setSpeed(i),
+      onToggle: (name) => this.toggle(name),
+      onToday: () => this.clock.resetToNow(),
+      onReset: () => this.resetView(),
+    });
+    new Picker(this.renderer.domElement, this.camera, this.bodies, select);
+    this.bindKeyboard();
+
+    this.toolbar.setPaused(this.clock.paused);
+    this.setSpeed(this.speedIndex);
+    this.toolbar.setToggle('orbits', this.showOrbits);
+    this.toolbar.setToggle('labels', this.showLabels);
+    this.toolbar.setToggle('trueScale', false);
+    this.showHelpOnFirstVisit();
 
     this.resize();
     window.addEventListener('resize', this.resize);
@@ -68,25 +118,123 @@ export class App {
     }
   }
 
+  private select(body: CelestialBody): void {
+    this.selected = body;
+    this.rig.focus(body);
+    this.infoPanel.show(body, this.clock.days);
+    this.labels.setSelected(body);
+    this.bodyList.setActive(body);
+  }
+
+  private deselect(): void {
+    this.selected = null;
+    this.rig.release();
+    this.infoPanel.hide();
+    this.labels.setSelected(null);
+    this.bodyList.setActive(null);
+  }
+
+  private resetView(): void {
+    this.deselect();
+    this.rig.reset();
+  }
+
+  private togglePause(): void {
+    this.clock.paused = !this.clock.paused;
+    this.toolbar.setPaused(this.clock.paused);
+  }
+
+  private setSpeed(index: number): void {
+    this.speedIndex = THREE.MathUtils.clamp(index, 0, SPEEDS.length - 1);
+    this.clock.timeScale = SPEEDS[this.speedIndex].days;
+    this.toolbar.setSpeedIndex(this.speedIndex);
+  }
+
+  private toggle(name: ToggleName): void {
+    if (name === 'orbits') {
+      this.showOrbits = !this.showOrbits;
+      this.orbitLines.visible = this.showOrbits;
+      this.toolbar.setToggle(name, this.showOrbits);
+    } else if (name === 'labels') {
+      this.showLabels = !this.showLabels;
+      this.labels.setEnabled(this.showLabels);
+      this.toolbar.setToggle(name, this.showLabels);
+    } else {
+      this.setScaleMode(this.scaleMode === 'compressed' ? 'true' : 'compressed');
+      this.toolbar.setToggle(name, this.scaleMode === 'true');
+    }
+  }
+
+  private setScaleMode(mode: ScaleMode): void {
+    const previousRadius = this.selected?.radius ?? 1;
+    this.scaleMode = mode;
+    this.sun.setScaleMode(mode);
+    for (const planet of this.planets) planet.setScaleMode(mode);
+    this.moon.setScaleMode(mode);
+    this.updateBodies(this.clock.days);
+    this.rig.rescale(previousRadius);
+  }
+
+  /** Show the help dialog once; storage may be unavailable (private mode), so fail open. */
+  private showHelpOnFirstVisit(): void {
+    let seen = false;
+    try {
+      seen = localStorage.getItem(HELP_SEEN_KEY) === '1';
+      localStorage.setItem(HELP_SEEN_KEY, '1');
+    } catch {
+      // Ignore: just show the help.
+    }
+    this.toolbar.toggleHelp(!seen);
+  }
+
+  private bindKeyboard(): void {
+    bindShortcuts({
+      selectIndex: (i) => this.bodies[i] && this.select(this.bodies[i]),
+      togglePause: () => this.togglePause(),
+      faster: () => this.setSpeed(this.speedIndex + 1),
+      slower: () => this.setSpeed(this.speedIndex - 1),
+      toggleOrbits: () => this.toggle('orbits'),
+      toggleLabels: () => this.toggle('labels'),
+      toggleScale: () => this.toggle('trueScale'),
+      toggleHelp: () => this.toolbar.toggleHelp(),
+      reset: () => this.resetView(),
+      escape: () => {
+        if (this.toolbar.helpOpen) this.toolbar.toggleHelp(false);
+        else this.deselect();
+      },
+    });
+  }
+
+  private updateBodies(days: number): void {
+    this.sun.update(days);
+    for (const planet of this.planets) planet.update(days);
+    this.moon.update(days);
+  }
+
   private readonly resize = (): void => {
     const { clientWidth: width, clientHeight: height } = this.container;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    this.labels.setSize(width, height);
   };
 
   private readonly tick = (time: number): void => {
-    const delta = this.lastTime === null ? 0 : (time - this.lastTime) / 1000;
+    const delta = Math.min(
+      this.lastTime === null ? 0 : (time - this.lastTime) / 1000,
+      MAX_FRAME_SECONDS,
+    );
     this.lastTime = time;
-    this.clock.advance(Math.min(delta, MAX_FRAME_SECONDS));
+    this.clock.advance(delta);
 
     const days = this.clock.days;
-    this.sun.update(days);
-    for (const planet of this.planets) planet.update(days);
-    this.moon.update(days);
-    this.panel.update(this.clock.date);
+    this.updateBodies(days);
+    this.rig.update(delta);
+    this.infoPanel.update(days, delta);
+    this.toolbar.setDate(this.clock.date);
 
-    this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    const { clientWidth: width, clientHeight: height } = this.container;
+    this.labels.render(this.scene, this.camera, width, height);
   };
 }

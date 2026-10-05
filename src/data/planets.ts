@@ -47,6 +47,9 @@ export interface PlanetData {
   orbit: OrbitalElements;
   surface: SurfaceSpec;
   rings?: { innerRadiusKm: number; outerRadiusKm: number };
+  /** Confirmed moons; a trailing "+" because the count keeps growing. */
+  moons: string;
+  description: string;
 }
 
 export const SUN_RADIUS_KM = 695_700;
@@ -57,6 +60,9 @@ export const EARTH_RADIUS_KM = 6_371;
 export const PLANETS: readonly PlanetData[] = [
   {
     name: 'Sao Thủy',
+    moons: '0',
+    description:
+      'Hành tinh nhỏ nhất và gần Mặt Trời nhất. Gần như không có khí quyển nên nhiệt độ dao động từ khoảng −180 °C đến 430 °C.',
     radiusKm: 2_439.7,
     rotationPeriodHours: 1_407.6,
     axialTiltDeg: 0.03,
@@ -73,6 +79,9 @@ export const PLANETS: readonly PlanetData[] = [
   },
   {
     name: 'Sao Kim',
+    moons: '0',
+    description:
+      'Hành tinh nóng nhất (~465 °C) do hiệu ứng nhà kính của lớp khí quyển CO₂ dày đặc. Tự quay ngược chiều và rất chậm: một ngày dài hơn một năm.',
     radiusKm: 6_051.8,
     rotationPeriodHours: 5_832.5,
     axialTiltDeg: 177.36,
@@ -93,6 +102,9 @@ export const PLANETS: readonly PlanetData[] = [
   },
   {
     name: 'Trái Đất',
+    moons: '1',
+    description:
+      'Hành tinh duy nhất được biết đến có sự sống, với khoảng 71% bề mặt là nước. Trục nghiêng 23,4° tạo ra các mùa.',
     radiusKm: 6_371,
     rotationPeriodHours: 23.934,
     axialTiltDeg: 23.44,
@@ -115,6 +127,9 @@ export const PLANETS: readonly PlanetData[] = [
   },
   {
     name: 'Sao Hỏa',
+    moons: '2',
+    description:
+      'Hành tinh đỏ nhờ bụi oxit sắt. Có núi lửa Olympus Mons cao nhất Hệ Mặt Trời và hai chỏm băng ở hai cực.',
     radiusKm: 3_389.5,
     rotationPeriodHours: 24.623,
     axialTiltDeg: 25.19,
@@ -136,6 +151,9 @@ export const PLANETS: readonly PlanetData[] = [
   },
   {
     name: 'Sao Mộc',
+    moons: '95+',
+    description:
+      'Hành tinh lớn nhất, khối lượng gấp hơn 2 lần tất cả hành tinh khác cộng lại. Vết Đỏ Lớn là một cơn bão lớn hơn cả Trái Đất.',
     radiusKm: 69_911,
     rotationPeriodHours: 9.925,
     axialTiltDeg: 3.13,
@@ -160,6 +178,9 @@ export const PLANETS: readonly PlanetData[] = [
   },
   {
     name: 'Sao Thổ',
+    moons: '270+',
+    description:
+      'Nổi tiếng với hệ vành đai băng và đá rộng hàng trăm nghìn km. Mật độ trung bình nhỏ hơn nước.',
     radiusKm: 58_232,
     rotationPeriodHours: 10.656,
     axialTiltDeg: 26.73,
@@ -181,6 +202,9 @@ export const PLANETS: readonly PlanetData[] = [
   },
   {
     name: 'Sao Thiên Vương',
+    moons: '28+',
+    description:
+      'Hành tinh băng khổng lồ nằm "nghiêng" gần 98°, nên mỗi cực có 42 năm ngày và 42 năm đêm liên tục.',
     radiusKm: 25_362,
     rotationPeriodHours: 17.24,
     axialTiltDeg: 97.77,
@@ -201,6 +225,9 @@ export const PLANETS: readonly PlanetData[] = [
   },
   {
     name: 'Sao Hải Vương',
+    moons: '16',
+    description:
+      'Hành tinh xa nhất, có gió mạnh nhất Hệ Mặt Trời (hơn 2.000 km/h). Được phát hiện năm 1846 nhờ tính toán toán học.',
     radiusKm: 24_622,
     rotationPeriodHours: 16.11,
     axialTiltDeg: 28.32,
@@ -229,7 +256,21 @@ export const MOON = {
   orbitalPeriodDays: 27.3217,
   /** Inclination to the ecliptic. */
   inclinationDeg: 5.145,
+  /** Mean distance from Earth. */
+  distanceKm: 384_400,
   map: 'textures/moon_1024.jpg',
+  description:
+    'Vệ tinh tự nhiên duy nhất của Trái Đất. Bị khóa thủy triều nên luôn hướng một mặt về phía Trái Đất.',
+} as const;
+
+export const SUN = {
+  name: 'Mặt Trời',
+  radiusKm: SUN_RADIUS_KM,
+  /** Sidereal rotation at the solar equator. */
+  rotationPeriodDays: 25.38,
+  surfaceTemperatureK: 5_772,
+  description:
+    'Ngôi sao trung tâm, chiếm khoảng 99,86% khối lượng Hệ Mặt Trời. Năng lượng đến từ phản ứng tổng hợp hạt nhân hydro thành heli.',
 } as const;
 
 export const SUN_SURFACE: ProceduralSurface = {

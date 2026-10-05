@@ -1,47 +1,50 @@
 import * as THREE from 'three';
 import type { PlanetData } from '../data/planets';
-import { scaledRadius, toScenePosition } from '../data/scale';
+import { bodyRadius, toScenePosition, type ScaleMode } from '../data/scale';
 import { heliocentricPosition } from '../physics/orbit';
+import { formatAu, formatDegrees, formatDuration, formatKm } from '../ui/format';
 import { loadTexture } from './assets';
-import { createOrbitLine } from './OrbitLine';
+import type { CelestialBody, InfoRow } from './CelestialBody';
+import { createOrbitLine, updateOrbitLine } from './OrbitLine';
 import { createRings } from './Rings';
 import { applySurfaceTexture } from './textures/factory';
 
 const DEG = Math.PI / 180;
 /** Clouds drift slightly faster than the ground so they visibly move. */
 const CLOUD_DRIFT = 1.08;
+const UNIT_SPHERE = new THREE.SphereGeometry(1, 64, 32);
 
 /**
  * Scene graph:
  *   object (follows the orbit, axes fixed in space)
- *   └─ tilt (axial tilt; rings live here, in the equatorial plane)
- *      └─ body (spins about its local Y axis)
+ *   └─ tilt (axial tilt, scaled to the planet's radius; rings live here)
+ *      └─ body (unit sphere spinning about its local Y axis)
  */
-export class Planet {
+export class Planet implements CelestialBody {
   readonly object = new THREE.Group();
   readonly orbitLine: THREE.LineLoop;
-  readonly radius: number;
+  readonly pickTarget: THREE.Mesh;
+  radius = 0;
+  private mode: ScaleMode;
   private readonly tilt = new THREE.Group();
-  private readonly body: THREE.Mesh;
   private readonly clouds?: THREE.Mesh;
 
   constructor(
     readonly data: PlanetData,
     seed: number,
+    mode: ScaleMode,
   ) {
     this.object.name = data.name;
-    this.radius = scaledRadius(data.radiusKm);
     this.tilt.rotation.z = data.axialTiltDeg * DEG;
     this.object.add(this.tilt);
 
-    const geometry = new THREE.SphereGeometry(this.radius, 64, 32);
-    this.body = new THREE.Mesh(geometry, createMaterial(data, seed));
-    this.body.name = data.name;
-    this.tilt.add(this.body);
+    this.pickTarget = new THREE.Mesh(UNIT_SPHERE, createMaterial(data, seed));
+    this.pickTarget.name = data.name;
+    this.tilt.add(this.pickTarget);
 
     if (data.surface.kind === 'image' && data.surface.cloudsMap) {
       this.clouds = new THREE.Mesh(
-        geometry,
+        UNIT_SPHERE,
         new THREE.MeshStandardMaterial({
           map: loadTexture(data.surface.cloudsMap),
           transparent: true,
@@ -55,23 +58,52 @@ export class Planet {
     }
 
     if (data.rings) {
-      this.tilt.add(
-        createRings(
-          data.rings.innerRadiusKm,
-          data.rings.outerRadiusKm,
-          this.radius / data.radiusKm,
-        ),
-      );
+      this.tilt.add(createRings(data.rings.innerRadiusKm, data.rings.outerRadiusKm, data.radiusKm));
     }
 
-    this.orbitLine = createOrbitLine(data.orbit);
+    this.mode = mode;
+    this.orbitLine = createOrbitLine(data.orbit, mode);
+    this.setScaleMode(mode);
+  }
+
+  get name(): string {
+    return this.data.name;
+  }
+
+  get description(): string {
+    return this.data.description;
+  }
+
+  get viewDistance(): number {
+    return this.radius * (this.data.rings ? 7 : 4.5);
+  }
+
+  setScaleMode(mode: ScaleMode): void {
+    if (mode !== this.mode) updateOrbitLine(this.orbitLine, this.data.orbit, mode);
+    this.mode = mode;
+    this.radius = bodyRadius(this.data.radiusKm, mode);
+    this.tilt.scale.setScalar(this.radius);
   }
 
   update(days: number): void {
-    toScenePosition(heliocentricPosition(this.data.orbit, days), this.object.position);
+    toScenePosition(heliocentricPosition(this.data.orbit, days), this.mode, this.object.position);
     const spin = ((days * 24) / this.data.rotationPeriodHours) * Math.PI * 2;
-    this.body.rotation.y = spin;
+    this.pickTarget.rotation.y = spin;
     if (this.clouds) this.clouds.rotation.y = spin * CLOUD_DRIFT;
+  }
+
+  info(days: number): InfoRow[] {
+    const d = this.data;
+    const p = heliocentricPosition(d.orbit, days);
+    const retrograde = d.axialTiltDeg > 90 ? ' (ngược chiều)' : '';
+    return [
+      { label: 'Bán kính', value: formatKm(d.radiusKm) },
+      { label: 'Cách Mặt Trời', value: formatAu(Math.hypot(p.x, p.y, p.z)) },
+      { label: 'Một năm (quỹ đạo)', value: formatDuration(d.orbit.periodDays) },
+      { label: 'Tự quay', value: formatDuration(d.rotationPeriodHours / 24) + retrograde },
+      { label: 'Độ nghiêng trục', value: formatDegrees(d.axialTiltDeg) },
+      { label: 'Số vệ tinh', value: d.moons },
+    ];
   }
 }
 
