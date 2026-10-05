@@ -95,7 +95,7 @@ galaxy/
 
 **Kết quả bàn giao:** ứng dụng hoàn chỉnh về chức năng.
 
-### Phase 4 — Hiệu ứng, tối ưu & triển khai
+### Phase 4 — Hiệu ứng, tối ưu & triển khai ✅
 
 **Mục tiêu:** đẹp, nhanh, chạy ổn trên nhiều thiết bị và public lên web.
 
@@ -108,6 +108,14 @@ galaxy/
 - README: hướng dẫn chạy, ghi nguồn/license texture.
 
 **Kết quả bàn giao:** website public, có CI/CD.
+
+> Ghi chú triển khai:
+>
+> - Không làm LOD: mỗi thiên thể dùng chung một khối cầu ~9k tam giác, tổng < 100k tam giác — rẻ cả với điện thoại, và giữ đường viền mượt khi zoom gần.
+> - Texture Trái Đất chuyển sang WebP (giảm ~40%); texture mây/Mặt Trăng giữ nguyên vì WebP không nhỏ hơn. Chưa dùng KTX2 (cần thêm công cụ `toktx` và bộ giải mã Basis).
+> - E2E chạy trên Chromium (desktop + giả lập Pixel 7). Firefox/Safari chưa có trong CI, cần kiểm tra tay.
+> - FPS thực tế chưa đo được trên GPU thật (môi trường phát triển chỉ có WebGL phần mềm); chế độ "Tự động" sẽ hạ chất lượng nếu FPS < 40.
+> - Deploy GitHub Pages chạy khi push lên `main` hoặc chạy workflow thủ công, sau khi bật Settings → Pages → Source: GitHub Actions.
 
 ---
 

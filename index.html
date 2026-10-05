@@ -4,11 +4,82 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Khám phá Hệ Mặt Trời 3D: xoay, zoom, theo dõi các hành tinh chuyển động theo quỹ đạo thật."
+    />
     <title>Hệ Mặt Trời 3D</title>
+    <style>
+      /* Inline so the loading screen is styled before the app's CSS arrives. */
+      .loading {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: grid;
+        place-items: center;
+        background: #000;
+        color: #e8eaf0;
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        transition: opacity 0.6s ease;
+      }
+      .loading.is-done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .loading__card {
+        width: min(320px, calc(100% - 32px));
+        text-align: center;
+      }
+      .loading__title {
+        margin: 0 0 16px;
+        font-size: 22px;
+        font-weight: 600;
+        color: #ffc94d;
+      }
+      .loading__bar {
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+      }
+      .loading__fill {
+        height: 100%;
+        background: #ffc94d;
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.2s ease;
+      }
+      .loading__text {
+        margin: 12px 0 0;
+        font-size: 13px;
+        color: #9aa3b5;
+      }
+      .loading.is-error .loading__bar {
+        display: none;
+      }
+      .loading.is-error .loading__text {
+        color: #ff8a80;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
     <div id="ui"></div>
+    <div id="loading" class="loading" role="status" aria-live="polite">
+      <div class="loading__card">
+        <h1 class="loading__title">Hệ Mặt Trời 3D</h1>
+        <div class="loading__bar"><div class="loading__fill"></div></div>
+        <p class="loading__text">Đang khởi tạo…</p>
+      </div>
+    </div>
+    <noscript>Trang này cần JavaScript để hiển thị mô hình 3D.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

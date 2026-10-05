@@ -7,12 +7,20 @@ import { loadTexture } from './assets';
 import type { CelestialBody, InfoRow } from './CelestialBody';
 import { createOrbitLine, updateOrbitLine } from './OrbitLine';
 import { createRings } from './Rings';
+import { createAtmosphereMaterial } from './shaders/AtmosphereMaterial';
 import { applySurfaceTexture } from './textures/factory';
 
 const DEG = Math.PI / 180;
 /** Clouds drift slightly faster than the ground so they visibly move. */
 const CLOUD_DRIFT = 1.08;
-const UNIT_SPHERE = new THREE.SphereGeometry(1, 64, 32);
+/**
+ * At high time scales real spin rates turn into strobing (Earth would spin
+ * 365 times a second at "1 year/s"), so cap the visible spin per frame.
+ */
+const MAX_SPIN_PER_FRAME = 0.12;
+// One shared, fairly dense sphere: ~9k triangles per body is cheap even on
+// phones and keeps silhouettes smooth when zoomed in, so no LOD levels needed.
+const UNIT_SPHERE = new THREE.SphereGeometry(1, 96, 48);
 
 /**
  * Scene graph:
@@ -28,6 +36,8 @@ export class Planet implements CelestialBody {
   private mode: ScaleMode;
   private readonly tilt = new THREE.Group();
   private readonly clouds?: THREE.Mesh;
+  private spin = 0;
+  private lastDays: number | null = null;
 
   constructor(
     readonly data: PlanetData,
@@ -55,6 +65,15 @@ export class Planet implements CelestialBody {
       );
       this.clouds.scale.setScalar(1.012);
       this.tilt.add(this.clouds);
+    }
+
+    if (data.atmosphere) {
+      const shell = new THREE.Mesh(
+        UNIT_SPHERE,
+        createAtmosphereMaterial(data.atmosphere.color, data.atmosphere.intensity),
+      );
+      shell.scale.setScalar(1.035);
+      this.tilt.add(shell);
     }
 
     if (data.rings) {
@@ -87,9 +106,16 @@ export class Planet implements CelestialBody {
 
   update(days: number): void {
     toScenePosition(heliocentricPosition(this.data.orbit, days), this.mode, this.object.position);
-    const spin = ((days * 24) / this.data.rotationPeriodHours) * Math.PI * 2;
-    this.pickTarget.rotation.y = spin;
-    if (this.clouds) this.clouds.rotation.y = spin * CLOUD_DRIFT;
+    const toRadians = (d: number) => ((d * 24) / this.data.rotationPeriodHours) * Math.PI * 2;
+    if (this.lastDays === null) {
+      this.spin = toRadians(days);
+    } else {
+      const step = toRadians(days - this.lastDays);
+      this.spin += THREE.MathUtils.clamp(step, -MAX_SPIN_PER_FRAME, MAX_SPIN_PER_FRAME);
+    }
+    this.lastDays = days;
+    this.pickTarget.rotation.y = this.spin;
+    if (this.clouds) this.clouds.rotation.y = this.spin * CLOUD_DRIFT;
   }
 
   info(days: number): InfoRow[] {

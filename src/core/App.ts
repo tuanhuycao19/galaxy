@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PLANETS } from '../data/planets';
 import type { ScaleMode } from '../data/scale';
 import type { CelestialBody } from '../objects/CelestialBody';
+import { loadingManager } from '../objects/loading';
 import { Moon } from '../objects/Moon';
 import { Planet } from '../objects/Planet';
 import { createStarfield } from '../objects/Starfield';
@@ -11,12 +12,14 @@ import { BodyList } from '../ui/BodyList';
 import { InfoPanel } from '../ui/InfoPanel';
 import { bindShortcuts } from '../ui/keyboard';
 import { Labels } from '../ui/Labels';
+import type { LoadingScreen } from '../ui/LoadingScreen';
 import { DEFAULT_SPEED_INDEX, SPEEDS, Toolbar, type ToggleName } from '../ui/Toolbar';
 import { CameraRig } from './CameraRig';
 import { Picker } from './Picker';
+import { QualityController, type QualityMode } from './quality';
+import { RenderPipeline } from './RenderPipeline';
 import { SimulationClock } from './SimulationClock';
 
-const MAX_PIXEL_RATIO = 2;
 /** Cap per-frame time so a backgrounded tab doesn't jump months ahead. */
 const MAX_FRAME_SECONDS = 0.1;
 const OVERVIEW_CAMERA = new THREE.Vector3(0, 90, 190);
@@ -24,6 +27,8 @@ const HELP_SEEN_KEY = 'galaxy.helpSeen';
 
 export class App {
   private readonly renderer: THREE.WebGLRenderer;
+  private readonly pipeline: RenderPipeline;
+  private readonly quality: QualityController;
   private readonly scene = new THREE.Scene();
   private readonly camera: THREE.PerspectiveCamera;
   private readonly controls: OrbitControls;
@@ -49,10 +54,21 @@ export class App {
   constructor(
     private readonly container: HTMLElement,
     uiRoot: HTMLElement,
+    loading: LoadingScreen,
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
     this.container.appendChild(this.renderer.domElement);
+
+    // Register before any asset starts loading.
+    loadingManager.onProgress = (_url, loaded, total) => loading.setProgress(loaded, total);
+    loadingManager.onLoad = () => {
+      loading.setMessage('Đang chuẩn bị đồ hoạ…');
+      // Compile shaders up front so the first frames after the fade don't stutter.
+      this.renderer
+        .compileAsync(this.scene, this.camera)
+        .catch(() => {})
+        .finally(() => loading.finish());
+    };
 
     // A tiny near plane lets the camera get close to true-scale planets
     // (Earth ≈ 0.0002 units); the logarithmic depth buffer keeps precision.
@@ -71,6 +87,7 @@ export class App {
     earth.object.add(this.moon.orbit);
     this.bodies = [this.sun, ...this.planets, this.moon];
     this.buildScene();
+    this.pipeline = new RenderPipeline(this.renderer, this.scene, this.camera);
 
     this.rig = new CameraRig(this.camera, this.controls, {
       camera: OVERVIEW_CAMERA,
@@ -88,7 +105,13 @@ export class App {
       onToggle: (name) => this.toggle(name),
       onToday: () => this.clock.resetToNow(),
       onReset: () => this.resetView(),
+      onQualityChange: (mode) => this.setQualityMode(mode),
     });
+
+    // Phones and tablets start one notch lower; auto mode steps down further if needed.
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    this.quality = new QualityController(coarse ? 'medium' : 'high', () => this.applyQuality());
+    this.applyQuality();
     new Picker(this.renderer.domElement, this.camera, this.bodies, select);
     this.bindKeyboard();
 
@@ -187,6 +210,16 @@ export class App {
     this.toolbar.toggleHelp(!seen);
   }
 
+  private setQualityMode(mode: QualityMode): void {
+    this.quality.setMode(mode);
+    this.applyQuality();
+  }
+
+  private applyQuality(): void {
+    this.pipeline.setQuality(this.quality.level);
+    this.toolbar.setQuality(this.quality.mode, this.quality.level);
+  }
+
   private bindKeyboard(): void {
     bindShortcuts({
       selectIndex: (i) => this.bodies[i] && this.select(this.bodies[i]),
@@ -198,6 +231,10 @@ export class App {
       toggleScale: () => this.toggle('trueScale'),
       toggleHelp: () => this.toolbar.toggleHelp(),
       reset: () => this.resetView(),
+      cycleQuality: () => {
+        const modes: QualityMode[] = ['auto', 'high', 'medium', 'low'];
+        this.setQualityMode(modes[(modes.indexOf(this.quality.mode) + 1) % modes.length]);
+      },
       escape: () => {
         if (this.toolbar.helpOpen) this.toolbar.toggleHelp(false);
         else this.deselect();
@@ -205,8 +242,8 @@ export class App {
     });
   }
 
-  private updateBodies(days: number): void {
-    this.sun.update(days);
+  private updateBodies(days: number, realSeconds = performance.now() / 1000): void {
+    this.sun.update(days, realSeconds);
     for (const planet of this.planets) planet.update(days);
     this.moon.update(days);
   }
@@ -215,25 +252,24 @@ export class App {
     const { clientWidth: width, clientHeight: height } = this.container;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height);
+    this.pipeline.setSize(width, height);
     this.labels.setSize(width, height);
   };
 
   private readonly tick = (time: number): void => {
-    const delta = Math.min(
-      this.lastTime === null ? 0 : (time - this.lastTime) / 1000,
-      MAX_FRAME_SECONDS,
-    );
+    const frameSeconds = this.lastTime === null ? 0 : (time - this.lastTime) / 1000;
+    const delta = Math.min(frameSeconds, MAX_FRAME_SECONDS);
     this.lastTime = time;
     this.clock.advance(delta);
+    this.quality.sample(frameSeconds);
 
     const days = this.clock.days;
-    this.updateBodies(days);
+    this.updateBodies(days, time / 1000);
     this.rig.update(delta);
     this.infoPanel.update(days, delta);
     this.toolbar.setDate(this.clock.date);
 
-    this.renderer.render(this.scene, this.camera);
+    this.pipeline.render();
     const { clientWidth: width, clientHeight: height } = this.container;
     this.labels.render(this.scene, this.camera, width, height);
   };

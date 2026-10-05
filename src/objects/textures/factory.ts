@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { ProceduralSurface } from '../../data/planets';
+import { loadingManager } from '../loading';
 import { generateSaturnRing } from './procedural';
 import type { SurfaceJob, SurfaceResult } from './surface.worker';
 
@@ -13,7 +14,10 @@ const RING_WIDTH = 1024;
  */
 class SurfaceWorkerPool {
   private readonly workers: Worker[] = [];
-  private readonly pending = new Map<number, (pixels: Uint8ClampedArray) => void>();
+  private readonly pending = new Map<
+    number,
+    { resolve: (pixels: Uint8ClampedArray) => void; reject: (error: Error) => void }
+  >();
   private nextId = 0;
 
   constructor(size: number) {
@@ -22,8 +26,15 @@ class SurfaceWorkerPool {
         type: 'module',
       });
       worker.onmessage = (event: MessageEvent<SurfaceResult>) => {
-        this.pending.get(event.data.id)?.(event.data.pixels);
+        this.pending.get(event.data.id)?.resolve(event.data.pixels);
         this.pending.delete(event.data.id);
+      };
+      // A worker that fails to start would otherwise leave its jobs (and the
+      // loading screen) waiting forever.
+      worker.onerror = (event) => {
+        event.preventDefault();
+        for (const job of this.pending.values()) job.reject(new Error(event.message));
+        this.pending.clear();
       };
       this.workers.push(worker);
     }
@@ -31,8 +42,8 @@ class SurfaceWorkerPool {
 
   generate(job: Omit<SurfaceJob, 'id'>): Promise<Uint8ClampedArray> {
     const id = this.nextId++;
-    return new Promise((resolve) => {
-      this.pending.set(id, resolve);
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
       this.workers[id % this.workers.length].postMessage({ ...job, id } satisfies SurfaceJob);
     });
   }
@@ -59,20 +70,28 @@ export function createSaturnRingTexture(innerKm: number, outerKm: number): THREE
 }
 
 /**
- * Sets a procedural map on a material once it is ready. Until then the
- * material shows `placeholder`, roughly the surface's average colour.
+ * Sets a procedural map on a material once it is ready. Until then (or if
+ * generation fails) the material shows a flat colour from the palette.
  */
 export function applySurfaceTexture(
-  material: THREE.MeshBasicMaterial | THREE.MeshStandardMaterial,
+  material: THREE.MeshStandardMaterial,
   spec: ProceduralSurface,
   seed: number,
 ): void {
   material.color.set(spec.palette[Math.floor(spec.palette.length / 2)]);
-  void createSurfaceTexture(spec, seed).then((texture) => {
-    material.map = texture;
-    material.color.set(0xffffff);
-    material.needsUpdate = true;
-  });
+  const item = `procedural:${seed}`;
+  loadingManager.itemStart(item);
+  createSurfaceTexture(spec, seed)
+    .then((texture) => {
+      material.map = texture;
+      material.color.set(0xffffff);
+      material.needsUpdate = true;
+    })
+    .catch((error: unknown) => {
+      console.warn('Procedural texture failed; keeping the flat colour.', error);
+      loadingManager.itemError(item);
+    })
+    .finally(() => loadingManager.itemEnd(item));
 }
 
 function toTexture(pixels: Uint8ClampedArray, width: number, height: number): THREE.DataTexture {

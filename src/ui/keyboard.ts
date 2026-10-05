@@ -8,6 +8,7 @@ export interface ShortcutHandlers {
   toggleScale(): void;
   toggleHelp(): void;
   reset(): void;
+  cycleQuality(): void;
   escape(): void;
 }
 
@@ -66,6 +67,10 @@ function dispatch(key: string, h: ShortcutHandlers): boolean {
     case 'r':
     case 'R':
       h.reset();
+      return true;
+    case 'q':
+    case 'Q':
+      h.cycleQuality();
       return true;
     case 'Escape':
       h.escape();

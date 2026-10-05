@@ -1,23 +1,21 @@
 import * as THREE from 'three';
-import { PLANETS, SUN, SUN_SURFACE } from '../data/planets';
+import { PLANETS, SUN } from '../data/planets';
 import { sunRadius, type ScaleMode } from '../data/scale';
 import { formatDuration, formatKm, formatNumber } from '../ui/format';
 import type { CelestialBody, InfoRow } from './CelestialBody';
-import { applySurfaceTexture } from './textures/factory';
+import { createSunMaterial } from './shaders/SunMaterial';
 
 export class Sun implements CelestialBody {
   readonly name = SUN.name;
   readonly description = SUN.description;
   readonly object = new THREE.Group();
-  readonly pickTarget: THREE.Mesh;
+  readonly pickTarget: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   radius = 0;
 
   constructor(mode: ScaleMode) {
     this.object.name = SUN.name;
 
-    const material = new THREE.MeshBasicMaterial();
-    applySurfaceTexture(material, SUN_SURFACE, 1);
-    this.pickTarget = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 32), material);
+    this.pickTarget = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 48), createSunMaterial());
     this.pickTarget.name = SUN.name;
     this.object.add(this.pickTarget);
 
@@ -35,8 +33,10 @@ export class Sun implements CelestialBody {
     this.pickTarget.scale.setScalar(this.radius);
   }
 
-  update(days: number): void {
+  /** `realSeconds` drives the surface animation, independent of simulation speed. */
+  update(days: number, realSeconds: number): void {
     this.pickTarget.rotation.y = (days / SUN.rotationPeriodDays) * Math.PI * 2;
+    this.pickTarget.material.uniforms.uTime.value = realSeconds;
   }
 
   info(): InfoRow[] {

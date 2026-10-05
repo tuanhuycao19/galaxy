@@ -1,3 +1,4 @@
+import type { QualityLevel, QualityMode } from '../core/quality';
 import { el } from './dom';
 import { formatDate } from './format';
 
@@ -19,7 +20,15 @@ export interface ToolbarHandlers {
   onToggle(name: ToggleName): void;
   onToday(): void;
   onReset(): void;
+  onQualityChange(mode: QualityMode): void;
 }
+
+const QUALITY_NAMES: Record<QualityMode, string> = {
+  auto: 'Tự động',
+  high: 'Cao',
+  medium: 'Trung bình',
+  low: 'Thấp',
+};
 
 export class Toolbar {
   private readonly playButton: HTMLButtonElement;
@@ -28,6 +37,8 @@ export class Toolbar {
   private readonly dateLabel: HTMLElement;
   private readonly toggles: Record<ToggleName, HTMLButtonElement>;
   private readonly help: HTMLElement;
+  private readonly qualitySelect: HTMLSelectElement;
+  private readonly qualityStatus: HTMLElement;
   private lastDate = '';
 
   constructor(container: HTMLElement, handlers: ToolbarHandlers) {
@@ -57,8 +68,21 @@ export class Toolbar {
       trueScale: toggle('trueScale', 'Tỉ lệ thật', 'Chuyển tỉ lệ nén ↔ thật (T)'),
     };
 
-    this.help = createHelp(() => this.toggleHelp(false));
-    const helpButton = button('?', 'Hướng dẫn (H)', () => this.toggleHelp());
+    this.qualitySelect = el('select', { className: 'select' }, { id: 'quality-select' });
+    for (const [mode, name] of Object.entries(QUALITY_NAMES)) {
+      this.qualitySelect.append(el('option', { textContent: name }, { value: mode }));
+    }
+    this.qualitySelect.addEventListener('change', () =>
+      handlers.onQualityChange(this.qualitySelect.value as QualityMode),
+    );
+    this.qualityStatus = el('span', { className: 'settings__status' });
+    const settings = el('div', { className: 'settings' }, {}, [
+      el('label', { textContent: 'Chất lượng đồ hoạ' }, { for: 'quality-select' }),
+      this.qualitySelect,
+      this.qualityStatus,
+    ]);
+    this.help = createHelp(settings, () => this.toggleHelp(false));
+    const helpButton = button('?', 'Hướng dẫn & cài đặt (H)', () => this.toggleHelp());
     helpButton.setAttribute('aria-label', 'Hướng dẫn');
 
     const bar = el(
@@ -110,6 +134,11 @@ export class Toolbar {
     if (text !== this.lastDate) this.dateLabel.textContent = this.lastDate = text;
   }
 
+  setQuality(mode: QualityMode, level: QualityLevel): void {
+    this.qualitySelect.value = mode;
+    this.qualityStatus.textContent = mode === 'auto' ? `Đang dùng: ${QUALITY_NAMES[level]}` : '';
+  }
+
   get helpOpen(): boolean {
     return !this.help.hidden;
   }
@@ -126,7 +155,7 @@ function button(text: string, title: string, onClick: () => void, variant?: 'tog
   return b;
 }
 
-function createHelp(onClose: () => void): HTMLElement {
+function createHelp(settings: HTMLElement, onClose: () => void): HTMLElement {
   // Third column: keyboard-only rows, hidden on touch devices.
   const rows: [string, string, boolean?][] = [
     ['Kéo chuột trái / 1 ngón', 'Xoay góc nhìn'],
@@ -138,6 +167,7 @@ function createHelp(onClose: () => void): HTMLElement {
     ['+ / −', 'Tăng / giảm tốc độ', true],
     ['O · L · T', 'Quỹ đạo · Nhãn · Tỉ lệ thật', true],
     ['R', 'Về toàn cảnh', true],
+    ['Q', 'Đổi chất lượng đồ hoạ', true],
     ['Esc', 'Bỏ chọn', true],
   ];
   const close = el(
@@ -161,7 +191,7 @@ function createHelp(onClose: () => void): HTMLElement {
     { role: 'dialog', 'aria-label': 'Hướng dẫn' },
     [
       el('header', { className: 'help__header' }, {}, [
-        el('h2', { textContent: 'Hướng dẫn' }),
+        el('h2', { textContent: 'Hướng dẫn & cài đặt' }),
         close,
       ]),
       el(
@@ -173,6 +203,7 @@ function createHelp(onClose: () => void): HTMLElement {
           return [el('dt', { className, textContent: k }), el('dd', { className, textContent: v })];
         }),
       ),
+      settings,
       start,
     ],
   );

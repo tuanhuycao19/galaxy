@@ -47,6 +47,8 @@ export interface PlanetData {
   orbit: OrbitalElements;
   surface: SurfaceSpec;
   rings?: { innerRadiusKm: number; outerRadiusKm: number };
+  /** Glowing rim on the sunlit side for planets with a thick atmosphere. */
+  atmosphere?: { color: number; intensity: number };
   /** Confirmed moons; a trailing "+" because the count keeps growing. */
   moons: string;
   description: string;
@@ -99,6 +101,7 @@ export const PLANETS: readonly PlanetData[] = [
       palette: [0xc9a46a, 0xe6c88f, 0xf1dcae, 0xe2c085, 0xd1ab70, 0xe8cd98, 0xc9a46a],
       turbulence: 0.35,
     },
+    atmosphere: { color: 0xffe2a8, intensity: 0.8 },
   },
   {
     name: 'Trái Đất',
@@ -119,11 +122,12 @@ export const PLANETS: readonly PlanetData[] = [
     },
     surface: {
       kind: 'image',
-      map: 'textures/earth_atmos_2048.jpg',
-      normalMap: 'textures/earth_normal_2048.jpg',
-      specularMap: 'textures/earth_specular_2048.jpg',
+      map: 'textures/earth_atmos_2048.webp',
+      normalMap: 'textures/earth_normal_2048.webp',
+      specularMap: 'textures/earth_specular_2048.webp',
       cloudsMap: 'textures/earth_clouds_1024.png',
     },
+    atmosphere: { color: 0x5aa8ff, intensity: 1.3 },
   },
   {
     name: 'Sao Hỏa',
@@ -272,9 +276,3 @@ export const SUN = {
   description:
     'Ngôi sao trung tâm, chiếm khoảng 99,86% khối lượng Hệ Mặt Trời. Năng lượng đến từ phản ứng tổng hợp hạt nhân hydro thành heli.',
 } as const;
-
-export const SUN_SURFACE: ProceduralSurface = {
-  kind: 'rocky',
-  palette: [0xd9480f, 0xf59f00, 0xffd43b, 0xfff3bf],
-  frequency: 10,
-};
