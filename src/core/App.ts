@@ -6,22 +6,32 @@ import type { CelestialBody } from '../objects/CelestialBody';
 import { loadingManager } from '../objects/loading';
 import { Moon } from '../objects/Moon';
 import { Planet } from '../objects/Planet';
+import { SiteMarker } from '../objects/SiteMarker';
 import { createStarfield } from '../objects/Starfield';
 import { Sun } from '../objects/Sun';
 import { BodyList } from '../ui/BodyList';
+import { Fade } from '../ui/Fade';
 import { InfoPanel } from '../ui/InfoPanel';
 import { bindShortcuts } from '../ui/keyboard';
 import { Labels } from '../ui/Labels';
 import type { LoadingScreen } from '../ui/LoadingScreen';
-import { DEFAULT_SPEED_INDEX, SPEEDS, Toolbar, type ToggleName } from '../ui/Toolbar';
+import {
+  DEFAULT_SPEED_INDEX,
+  REAL_TIME_SPEED_INDEX,
+  SPEEDS,
+  Toolbar,
+  type ToggleName,
+} from '../ui/Toolbar';
 import { CameraRig } from './CameraRig';
 import { Picker } from './Picker';
 import { QualityController, type QualityMode } from './quality';
-import { RenderPipeline } from './RenderPipeline';
+import { RenderPipeline, type RenderView } from './RenderPipeline';
 import { SimulationClock } from './SimulationClock';
+import { SurfaceTrip } from './SurfaceTrip';
 
 /** Cap per-frame time so a backgrounded tab doesn't jump months ahead. */
 const MAX_FRAME_SECONDS = 0.1;
+const MAX_ANIMATION_STEP = 0.5;
 const OVERVIEW_CAMERA = new THREE.Vector3(0, 90, 190);
 const HELP_SEEN_KEY = 'galaxy.helpSeen';
 
@@ -37,6 +47,12 @@ export class App {
   private readonly sun: Sun;
   private readonly planets: Planet[];
   private readonly moon: Moon;
+  private readonly earth: Planet;
+  /** The family's beach on Earth, reachable with G or its tag. */
+  private readonly site: SiteMarker;
+  private readonly trip: SurfaceTrip;
+  private readonly picker: Picker;
+  private readonly spaceView: RenderView;
   /** Index = keyboard shortcut: 0 Sun, 1–8 planets, 9 Moon. */
   private readonly bodies: CelestialBody[];
   private readonly orbitLines = new THREE.Group();
@@ -47,6 +63,8 @@ export class App {
   private readonly toolbar: Toolbar;
   private selected: CelestialBody | null = null;
   private speedIndex = DEFAULT_SPEED_INDEX;
+  /** Speed to restore when coming back up from the beach. */
+  private speedBeforeTrip = DEFAULT_SPEED_INDEX;
   private showOrbits = true;
   private showLabels = true;
   private lastTime: number | null = null;
@@ -57,6 +75,9 @@ export class App {
     loading: LoadingScreen,
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+    // Only the beach scene has shadow-casting lights; space pays nothing for this.
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.container.appendChild(this.renderer.domElement);
 
     // Register before any asset starts loading.
@@ -83,11 +104,21 @@ export class App {
     this.sun = new Sun(this.scaleMode);
     this.planets = PLANETS.map((data, i) => new Planet(data, i + 2, this.scaleMode));
     const earth = this.planets.find((p) => p.data.name === 'Trái Đất')!;
+    this.earth = earth;
     this.moon = new Moon(earth, this.scaleMode);
     earth.object.add(this.moon.orbit);
     this.bodies = [this.sun, ...this.planets, this.moon];
+    this.site = new SiteMarker(earth, () => this.goToSite());
     this.buildScene();
-    this.pipeline = new RenderPipeline(this.renderer, this.scene, this.camera);
+    this.spaceView = {
+      scene: this.scene,
+      camera: this.camera,
+      // Only HDR pixels (> 1.0, i.e. the Sun) bloom; lit planets stay crisp.
+      bloom: { strength: 0.6, radius: 0.35, threshold: 1 },
+      toneMapping: THREE.NoToneMapping,
+      exposure: 1,
+    };
+    this.pipeline = new RenderPipeline(this.renderer, this.spaceView);
 
     this.rig = new CameraRig(this.camera, this.controls, {
       camera: OVERVIEW_CAMERA,
@@ -97,8 +128,18 @@ export class App {
 
     const select = (body: CelestialBody) => this.select(body);
     this.labels = new Labels(this.container, this.bodies, select);
-    this.bodyList = new BodyList(uiRoot, this.bodies, select);
-    this.infoPanel = new InfoPanel(uiRoot, () => this.deselect());
+    const fade = new Fade(this.container);
+    this.bodyList = new BodyList(
+      uiRoot,
+      [
+        ...this.bodies.map((source, i) => ({ source, key: String(i) })),
+        { source: this.site, key: 'G', label: '🏖 Gia đình ở biển', separated: true },
+      ],
+      (source) => (source === this.site ? this.goToSite() : this.select(source as CelestialBody)),
+    );
+    this.infoPanel = new InfoPanel(uiRoot, () =>
+      this.trip.state === 'space' ? this.deselect() : this.infoPanel.hide(),
+    );
     this.toolbar = new Toolbar(uiRoot, {
       onTogglePause: () => this.togglePause(),
       onSpeedChange: (i) => this.setSpeed(i),
@@ -111,8 +152,22 @@ export class App {
     // Phones and tablets start one notch lower; auto mode steps down further if needed.
     const coarse = window.matchMedia('(pointer: coarse)').matches;
     this.quality = new QualityController(coarse ? 'medium' : 'high', () => this.applyQuality());
+    this.trip = new SurfaceTrip({
+      domElement: this.renderer.domElement,
+      pipeline: this.pipeline,
+      spaceView: this.spaceView,
+      spaceCamera: this.camera,
+      spaceControls: this.controls,
+      rig: this.rig,
+      earth,
+      site: this.site,
+      fade,
+      quality: () => this.quality.level,
+      size: () => ({ width: this.container.clientWidth, height: this.container.clientHeight }),
+      onBackInSpace: (after) => this.backInSpace(after),
+    });
     this.applyQuality();
-    new Picker(this.renderer.domElement, this.camera, this.bodies, select);
+    this.picker = new Picker(this.renderer.domElement, this.camera, this.bodies, select);
     this.bindKeyboard();
 
     this.toolbar.setPaused(this.clock.paused);
@@ -142,6 +197,11 @@ export class App {
   }
 
   private select(body: CelestialBody): void {
+    if (this.trip.state === 'surface') {
+      this.trip.leave(() => this.select(body));
+      return;
+    }
+    if (this.trip.state !== 'space') return;
     this.selected = body;
     this.rig.focus(body);
     this.infoPanel.show(body, this.clock.days);
@@ -158,8 +218,40 @@ export class App {
   }
 
   private resetView(): void {
+    if (this.trip.state === 'surface') {
+      this.trip.leave(() => this.resetView());
+      return;
+    }
+    if (this.trip.state !== 'space') return;
     this.deselect();
     this.rig.reset();
+  }
+
+  /** Zoom all the way down to the family on the beach. */
+  private goToSite(): void {
+    if (this.trip.state !== 'space') return;
+    this.toolbar.toggleHelp(false);
+    this.selected = null;
+    this.labels.setSelected(null);
+    this.bodyList.setActive(this.site);
+    this.infoPanel.show(this.site, this.clock.days);
+    // On the beach, time runs at its real pace so the light behaves naturally.
+    this.speedBeforeTrip = this.speedIndex;
+    this.setSpeed(REAL_TIME_SPEED_INDEX);
+    this.trip.dive();
+  }
+
+  private backInSpace(after?: () => void): void {
+    this.setSpeed(this.speedBeforeTrip);
+    if (after) {
+      after();
+      return;
+    }
+    // The trip flies out to Earth; reflect that as the selection.
+    this.selected = this.earth;
+    this.infoPanel.show(this.earth, this.clock.days);
+    this.labels.setSelected(this.earth);
+    this.bodyList.setActive(this.earth);
   }
 
   private togglePause(): void {
@@ -183,6 +275,8 @@ export class App {
       this.labels.setEnabled(this.showLabels);
       this.toolbar.setToggle(name, this.showLabels);
     } else {
+      // Rescaling mid-dive would yank the camera; only allow it in space.
+      if (this.trip.state !== 'space') return;
       this.setScaleMode(this.scaleMode === 'compressed' ? 'true' : 'compressed');
       this.toolbar.setToggle(name, this.scaleMode === 'true');
     }
@@ -217,6 +311,7 @@ export class App {
 
   private applyQuality(): void {
     this.pipeline.setQuality(this.quality.level);
+    this.trip.setQuality(this.quality.level);
     this.toolbar.setQuality(this.quality.mode, this.quality.level);
   }
 
@@ -235,9 +330,11 @@ export class App {
         const modes: QualityMode[] = ['auto', 'high', 'medium', 'low'];
         this.setQualityMode(modes[(modes.indexOf(this.quality.mode) + 1) % modes.length]);
       },
+      goToSite: () => this.goToSite(),
       escape: () => {
         if (this.toolbar.helpOpen) this.toolbar.toggleHelp(false);
-        else this.deselect();
+        else if (this.trip.state === 'surface') this.trip.leave();
+        else if (this.trip.state === 'space') this.deselect();
       },
     });
   }
@@ -254,6 +351,7 @@ export class App {
     this.camera.updateProjectionMatrix();
     this.pipeline.setSize(width, height);
     this.labels.setSize(width, height);
+    this.trip.setSize(width, height);
   };
 
   private readonly tick = (time: number): void => {
@@ -265,11 +363,21 @@ export class App {
 
     const days = this.clock.days;
     this.updateBodies(days, time / 1000);
-    this.rig.update(delta);
+    // Transitions follow wall-clock time (with a looser cap than the
+    // simulation) so they take the same time on slow devices.
+    this.trip.update(Math.min(frameSeconds, MAX_ANIMATION_STEP), time / 1000, days);
+    // The dive drives the space camera itself; otherwise the rig does.
+    if (this.trip.state === 'space') this.rig.update(delta);
+    this.site.update(this.camera);
+    this.picker.enabled = this.trip.state === 'space';
     this.infoPanel.update(days, delta);
     this.toolbar.setDate(this.clock.date);
+    if (document.documentElement.dataset.view !== this.trip.state) {
+      document.documentElement.dataset.view = this.trip.state;
+    }
 
     this.pipeline.render();
+    this.labels.setSuppressed(this.trip.onSurface);
     const { clientWidth: width, clientHeight: height } = this.container;
     this.labels.render(this.scene, this.camera, width, height);
   };

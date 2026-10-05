@@ -1,4 +1,5 @@
 import type { OrbitalElements } from '../physics/orbit';
+import type { RotationElements } from '../physics/rotation';
 
 /** Hand-made texture recipe, used until a real image map is available. */
 export type ProceduralSurface =
@@ -45,6 +46,8 @@ export interface PlanetData {
   axialTiltDeg: number;
   /** Keplerian elements at the J2000 epoch. */
   orbit: OrbitalElements;
+  /** Pole direction and prime meridian (IAU WGCCRE 2015), so spin phase matches reality. */
+  rotation: RotationElements;
   surface: SurfaceSpec;
   rings?: { innerRadiusKm: number; outerRadiusKm: number };
   /** Glowing rim on the sunlit side for planets with a thick atmosphere. */
@@ -77,6 +80,12 @@ export const PLANETS: readonly PlanetData[] = [
       longitudeOfAscendingNodeDeg: 48.33076593,
       periodDays: 87.969,
     },
+    rotation: {
+      poleRaDeg: 281.0103,
+      poleDecDeg: 61.4155,
+      w0Deg: 329.5988,
+      wRateDegPerDay: 6.1385108,
+    },
     surface: { kind: 'rocky', palette: [0x4a4642, 0x8a837b, 0xb9b2a8], frequency: 6 },
   },
   {
@@ -96,6 +105,7 @@ export const PLANETS: readonly PlanetData[] = [
       longitudeOfAscendingNodeDeg: 76.67984255,
       periodDays: 224.701,
     },
+    rotation: { poleRaDeg: 272.76, poleDecDeg: 67.16, w0Deg: 160.2, wRateDegPerDay: -1.4813688 },
     surface: {
       kind: 'banded',
       palette: [0xc9a46a, 0xe6c88f, 0xf1dcae, 0xe2c085, 0xd1ab70, 0xe8cd98, 0xc9a46a],
@@ -120,6 +130,7 @@ export const PLANETS: readonly PlanetData[] = [
       longitudeOfAscendingNodeDeg: 0,
       periodDays: 365.256,
     },
+    rotation: { poleRaDeg: 0, poleDecDeg: 90, w0Deg: 190.147, wRateDegPerDay: 360.9856235 },
     surface: {
       kind: 'image',
       map: 'textures/earth_atmos_2048.webp',
@@ -146,6 +157,12 @@ export const PLANETS: readonly PlanetData[] = [
       longitudeOfAscendingNodeDeg: 49.55953891,
       periodDays: 686.98,
     },
+    rotation: {
+      poleRaDeg: 317.269202,
+      poleDecDeg: 54.432516,
+      w0Deg: 176.049863,
+      wRateDegPerDay: 350.891982443297,
+    },
     surface: {
       kind: 'rocky',
       palette: [0x5a2410, 0x9c4a22, 0xc1703c, 0xd99a62],
@@ -169,6 +186,12 @@ export const PLANETS: readonly PlanetData[] = [
       longitudeOfPerihelionDeg: 14.72847983,
       longitudeOfAscendingNodeDeg: 100.47390909,
       periodDays: 4_332.59,
+    },
+    rotation: {
+      poleRaDeg: 268.056595,
+      poleDecDeg: 64.495303,
+      w0Deg: 284.95,
+      wRateDegPerDay: 870.536,
     },
     surface: {
       kind: 'banded',
@@ -197,6 +220,7 @@ export const PLANETS: readonly PlanetData[] = [
       longitudeOfAscendingNodeDeg: 113.66242448,
       periodDays: 10_759.22,
     },
+    rotation: { poleRaDeg: 40.589, poleDecDeg: 83.537, w0Deg: 38.9, wRateDegPerDay: 810.7939024 },
     surface: {
       kind: 'banded',
       palette: [0x9c8a6a, 0xcdb88e, 0xe6d3a6, 0xd4bd8c, 0xeddcb2, 0xcfb688, 0xe3cf9f, 0xb8a37a],
@@ -221,6 +245,12 @@ export const PLANETS: readonly PlanetData[] = [
       longitudeOfAscendingNodeDeg: 74.01692503,
       periodDays: 30_688.5,
     },
+    rotation: {
+      poleRaDeg: 257.311,
+      poleDecDeg: -15.175,
+      w0Deg: 203.81,
+      wRateDegPerDay: -501.1600928,
+    },
     surface: {
       kind: 'banded',
       palette: [0x8fd3da, 0xa6e1e6, 0xb3e8ec, 0xa6e1e6, 0x93d6dd],
@@ -244,6 +274,7 @@ export const PLANETS: readonly PlanetData[] = [
       longitudeOfAscendingNodeDeg: 131.78422574,
       periodDays: 60_182,
     },
+    rotation: { poleRaDeg: 299.36, poleDecDeg: 43.46, w0Deg: 249.978, wRateDegPerDay: 541.1397757 },
     surface: {
       kind: 'banded',
       palette: [0x2a4fb0, 0x3c66cc, 0x4f7ade, 0x3a62c6, 0x5584e0, 0x3a62c6, 0x2a4fb0],

@@ -25,6 +25,7 @@ export class Labels {
   private readonly entries: Entry[];
   private readonly projected = new THREE.Vector3();
   private enabled = true;
+  private suppressed = false;
   private selected: CelestialBody | null = null;
 
   constructor(
@@ -57,7 +58,14 @@ export class Labels {
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-    this.renderer.domElement.hidden = !enabled;
+    this.renderer.domElement.hidden = !this.enabled || this.suppressed;
+  }
+
+  /** Hide all tags temporarily (e.g. while the beach scene is shown), keeping the user's setting. */
+  setSuppressed(suppressed: boolean): void {
+    if (suppressed === this.suppressed) return;
+    this.suppressed = suppressed;
+    this.renderer.domElement.hidden = !this.enabled || this.suppressed;
   }
 
   setSelected(body: CelestialBody | null): void {
@@ -70,7 +78,7 @@ export class Labels {
   }
 
   render(scene: THREE.Scene, camera: THREE.PerspectiveCamera, width: number, height: number): void {
-    if (!this.enabled) return;
+    if (!this.enabled || this.suppressed) return;
     this.resolveOverlaps(camera, width, height);
     this.renderer.render(scene, camera);
   }

@@ -5,10 +5,14 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { QUALITY_SETTINGS, type QualityLevel } from './quality';
 
-/** Only HDR pixels (> 1.0, i.e. the Sun) bloom; lit planets stay crisp. */
-const BLOOM_THRESHOLD = 1.0;
-const BLOOM_STRENGTH = 0.6;
-const BLOOM_RADIUS = 0.35;
+/** What to render and how: each view brings its own bloom and tone mapping. */
+export interface RenderView {
+  scene: THREE.Scene;
+  camera: THREE.Camera;
+  bloom: { strength: number; radius: number; threshold: number };
+  toneMapping: THREE.ToneMapping;
+  exposure: number;
+}
 
 /**
  * Renders the scene either straight to the canvas (low quality) or through
@@ -18,30 +22,40 @@ const BLOOM_RADIUS = 0.35;
  */
 export class RenderPipeline {
   private readonly composer: EffectComposer;
+  private readonly renderPass: RenderPass;
   private readonly bloomPass: UnrealBloomPass;
+  private view: RenderView;
   private bloom = true;
   private width = 1;
   private height = 1;
 
   constructor(
     private readonly renderer: THREE.WebGLRenderer,
-    private readonly scene: THREE.Scene,
-    private readonly camera: THREE.Camera,
+    view: RenderView,
   ) {
     const target = new THREE.WebGLRenderTarget(1, 1, {
       type: THREE.HalfFloatType,
       samples: 4,
     });
     this.composer = new EffectComposer(renderer, target);
-    this.composer.addPass(new RenderPass(scene, camera));
-    this.bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(1, 1),
-      BLOOM_STRENGTH,
-      BLOOM_RADIUS,
-      BLOOM_THRESHOLD,
-    );
+    this.renderPass = new RenderPass(view.scene, view.camera);
+    this.composer.addPass(this.renderPass);
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 1, 0, 1);
     this.composer.addPass(this.bloomPass);
     this.composer.addPass(new OutputPass());
+    this.view = view;
+    this.setView(view);
+  }
+
+  setView(view: RenderView): void {
+    this.view = view;
+    this.renderPass.scene = view.scene;
+    this.renderPass.camera = view.camera;
+    this.bloomPass.strength = view.bloom.strength;
+    this.bloomPass.radius = view.bloom.radius;
+    this.bloomPass.threshold = view.bloom.threshold;
+    this.renderer.toneMapping = view.toneMapping;
+    this.renderer.toneMappingExposure = view.exposure;
   }
 
   setQuality(level: QualityLevel): void {
@@ -62,6 +76,6 @@ export class RenderPipeline {
 
   render(): void {
     if (this.bloom) this.composer.render();
-    else this.renderer.render(this.scene, this.camera);
+    else this.renderer.render(this.view.scene, this.view.camera);
   }
 }

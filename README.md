@@ -17,18 +17,19 @@ Lần đầu chạy e2e trên máy mới: `npx playwright install chromium`.
 
 ## Điều khiển
 
-| Thao tác                    | Chuột / cảm ứng                            | Phím          |
-| --------------------------- | ------------------------------------------ | ------------- |
-| Xoay góc nhìn               | Kéo chuột trái / 1 ngón                    |               |
-| Zoom                        | Cuộn chuột / chụm 2 ngón                   |               |
-| Di chuyển (khi không chọn)  | Chuột phải / kéo 2 ngón                    |               |
-| Chọn thiên thể, bay tới     | Bấm vào thiên thể, nhãn tên hoặc danh sách | `0`–`9`       |
-| Bỏ chọn                     | Nút × trên bảng thông tin                  | `Esc`         |
-| Tạm dừng / chạy             | Nút ▶ / ❚❚                                 | `Space`       |
-| Tốc độ thời gian            | Thanh trượt (1 giờ → 1 năm mỗi giây)       | `+` / `-`     |
-| Quỹ đạo · Nhãn · Tỉ lệ thật | Nút trên thanh công cụ                     | `O`, `L`, `T` |
-| Về toàn cảnh                | Nút "Toàn cảnh"                            | `R`           |
-| Hướng dẫn                   | Nút `?`                                    | `H`           |
+| Thao tác                    | Chuột / cảm ứng                             | Phím          |
+| --------------------------- | ------------------------------------------- | ------------- |
+| Xoay góc nhìn               | Kéo chuột trái / 1 ngón                     |               |
+| Zoom                        | Cuộn chuột / chụm 2 ngón                    |               |
+| Di chuyển (khi không chọn)  | Chuột phải / kéo 2 ngón                     |               |
+| Chọn thiên thể, bay tới     | Bấm vào thiên thể, nhãn tên hoặc danh sách  | `0`–`9`       |
+| Bỏ chọn                     | Nút × trên bảng thông tin                   | `Esc`         |
+| Tạm dừng / chạy             | Nút ▶ / ❚❚                                  | `Space`       |
+| Tốc độ thời gian            | Thanh trượt (1 giờ → 1 năm mỗi giây)        | `+` / `-`     |
+| Quỹ đạo · Nhãn · Tỉ lệ thật | Nút trên thanh công cụ                      | `O`, `L`, `T` |
+| Zoom xuống gia đình ở biển  | Nhãn "🏖 Gia đình" trên Trái Đất / danh sách | `G`           |
+| Về toàn cảnh                | Nút "Toàn cảnh"                             | `R`           |
+| Hướng dẫn                   | Nút `?`                                     | `H`           |
 
 ## Mô phỏng
 
@@ -37,6 +38,15 @@ Lần đầu chạy e2e trên máy mới: `npx playwright install chromium`.
   - **Nén** (mặc định): kích thước và khoảng cách được nén để nhìn thấy mọi hành tinh cùng lúc.
   - **Thật**: cùng một tỉ lệ cho tất cả (1 AU = 5 đơn vị) — các hành tinh chỉ là chấm nhỏ; bấm vào nhãn để bay tới.
 - Khi chọn một thiên thể, camera bay tới và bám theo nó trên quỹ đạo; bảng thông tin cập nhật khoảng cách theo thời gian thực.
+
+## Zoom xuống gia đình trên Trái Đất
+
+Chọn **🏖 Gia đình ở biển** (danh sách bên trái, nhãn trên Trái Đất, hoặc phím `G`): camera lao xuống bãi biển Mỹ Khê (Đà Nẵng), xuyên qua lớp mây rồi hạ xuống trước một gia đình bốn người đứng trên bãi cát trắng, phía sau là ngôi nhà có bể bơi, bên cạnh là biển.
+
+- Hai thang đo chênh nhau ~10⁷ lần (hành tinh vs. con người) — vượt độ chính xác số thực của GPU — nên bãi biển là **một cảnh riêng tính bằng mét** (`src/surface/`). Lớp "mây" che khoảnh khắc chuyển cảnh.
+- **Ánh sáng theo giờ thật**: hướng và cao độ Mặt Trời tại bãi biển tính từ quỹ đạo Trái Đất + mô hình quay IAU (`src/physics/rotation.ts`): trưa nắng gắt, hoàng hôn phía tây, đêm có sao, đèn nhà và đèn bể bơi bật sáng. Trên bãi biển, thời gian chạy **theo thời gian thực** (có thể tua nhanh để xem mặt trời lặn).
+- Xoay/zoom tự do quanh gia đình; **zoom ra hết cỡ**, nhấn `Esc` hoặc "Toàn cảnh" để bay ngược lên vũ trụ.
+- Mọi thứ (nhà, bể bơi, cây dừa, người) dựng bằng hình khối thủ tục, không dùng model ngoài; mặt biển dùng `Water` và bầu trời dùng `Sky` của three.js.
 
 ## Đồ hoạ & hiệu năng
 
@@ -59,3 +69,5 @@ Workflow `.github/workflows/ci.yml` chạy format, lint, typecheck, unit test, b
 
 - Trái Đất, Mặt Trăng: [three.js examples](https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets) (MIT).
 - Mặt Trời, các hành tinh khác và vành đai Sao Thổ: sinh thủ tục (`src/objects/textures/procedural.ts`).
+- Normal map mặt biển (`waternormals`): [three.js examples](https://github.com/mrdoob/three.js/tree/dev/examples/textures) (MIT).
+- Hướng trục quay và kinh tuyến gốc các hành tinh: IAU WGCCRE 2015.

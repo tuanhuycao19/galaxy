@@ -426,3 +426,34 @@ kbd {
     display: none;
   }
 }
+
+/* ---------- Space ↔ beach transition ---------- */
+
+.fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 45%, #ffffff 0%, #e2f0ff 50%, #a9cdf0 100%);
+}
+
+.label__chip--site {
+  background: rgba(60, 40, 10, 0.7);
+  border-color: #f5d58a;
+  color: #fff3d1;
+}
+
+.body-list__separated {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--panel-border);
+}
+
+@media (max-width: 719px) {
+  .body-list__separated {
+    margin: 0 0 0 4px;
+    padding: 0 0 0 4px;
+    border-top: 0;
+    border-left: 1px solid var(--panel-border);
+  }
+}

@@ -1,4 +1,4 @@
-import type { CelestialBody } from '../objects/CelestialBody';
+import type { InfoSource } from '../objects/CelestialBody';
 import { el } from './dom';
 
 /** Live-updating values (e.g. distance from the Sun) are refreshed at this interval. */
@@ -9,7 +9,7 @@ export class InfoPanel {
   private readonly title: HTMLElement;
   private readonly rows: HTMLElement;
   private readonly description: HTMLElement;
-  private body: CelestialBody | null = null;
+  private body: InfoSource | null = null;
   private sinceRefresh = 0;
 
   constructor(container: HTMLElement, onClose: () => void) {
@@ -34,7 +34,7 @@ export class InfoPanel {
     container.appendChild(this.root);
   }
 
-  show(body: CelestialBody, days: number): void {
+  show(body: InfoSource, days: number): void {
     this.body = body;
     this.title.textContent = body.name;
     this.description.textContent = body.description;

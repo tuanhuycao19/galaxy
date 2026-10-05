@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { PlanetData } from '../data/planets';
 import { bodyRadius, toScenePosition, type ScaleMode } from '../data/scale';
-import { heliocentricPosition } from '../physics/orbit';
+import { heliocentricPosition, type Vec3 } from '../physics/orbit';
+import { bodyFrame, primeMeridianAngle } from '../physics/rotation';
 import { formatAu, formatDegrees, formatDuration, formatKm } from '../ui/format';
 import { loadTexture } from './assets';
 import type { CelestialBody, InfoRow } from './CelestialBody';
@@ -16,8 +17,11 @@ const CLOUD_DRIFT = 1.08;
 /**
  * At high time scales real spin rates turn into strobing (Earth would spin
  * 365 times a second at "1 year/s"), so cap the visible spin per frame.
+ * Below the cap the spin eases back to the true rotation phase.
  */
 const MAX_SPIN_PER_FRAME = 0.12;
+const PHASE_CORRECTION_PER_FRAME = 0.02;
+const TWO_PI = Math.PI * 2;
 // One shared, fairly dense sphere: ~9k triangles per body is cheap even on
 // phones and keeps silhouettes smooth when zoomed in, so no LOD levels needed.
 const UNIT_SPHERE = new THREE.SphereGeometry(1, 96, 48);
@@ -25,8 +29,10 @@ const UNIT_SPHERE = new THREE.SphereGeometry(1, 96, 48);
 /**
  * Scene graph:
  *   object (follows the orbit, axes fixed in space)
- *   └─ tilt (axial tilt, scaled to the planet's radius; rings live here)
- *      └─ body (unit sphere spinning about its local Y axis)
+ *   └─ tilt (IAU body frame: +Y = north pole, +X = node W is measured
+ *      │       from; scaled to the planet's radius; rings live here)
+ *      └─ body (unit sphere spinning about its local Y axis by W, so the
+ *               texture's prime meridian, at local +X, faces the right way)
  */
 export class Planet implements CelestialBody {
   readonly object = new THREE.Group();
@@ -37,6 +43,7 @@ export class Planet implements CelestialBody {
   private readonly tilt = new THREE.Group();
   private readonly clouds?: THREE.Mesh;
   private spin = 0;
+  private cloudSpin = 0;
   private lastDays: number | null = null;
 
   constructor(
@@ -45,7 +52,10 @@ export class Planet implements CelestialBody {
     mode: ScaleMode,
   ) {
     this.object.name = data.name;
-    this.tilt.rotation.z = data.axialTiltDeg * DEG;
+    const frame = bodyFrame(data.rotation);
+    this.tilt.quaternion.setFromRotationMatrix(
+      new THREE.Matrix4().makeBasis(toScene(frame.x), toScene(frame.y), toScene(frame.z)),
+    );
     this.object.add(this.tilt);
 
     this.pickTarget = new THREE.Mesh(UNIT_SPHERE, createMaterial(data, seed));
@@ -106,16 +116,52 @@ export class Planet implements CelestialBody {
 
   update(days: number): void {
     toScenePosition(heliocentricPosition(this.data.orbit, days), this.mode, this.object.position);
-    const toRadians = (d: number) => ((d * 24) / this.data.rotationPeriodHours) * Math.PI * 2;
+
+    const target = primeMeridianAngle(this.data.rotation, days);
+    let applied: number;
     if (this.lastDays === null) {
-      this.spin = toRadians(days);
+      applied = target - this.spin;
     } else {
-      const step = toRadians(days - this.lastDays);
-      this.spin += THREE.MathUtils.clamp(step, -MAX_SPIN_PER_FRAME, MAX_SPIN_PER_FRAME);
+      const step = this.data.rotation.wRateDegPerDay * DEG * (days - this.lastDays);
+      if (Math.abs(step) <= MAX_SPIN_PER_FRAME) {
+        const drift = wrapPi(target - (this.spin + step));
+        applied =
+          step +
+          THREE.MathUtils.clamp(drift, -PHASE_CORRECTION_PER_FRAME, PHASE_CORRECTION_PER_FRAME);
+      } else {
+        applied = Math.sign(step) * MAX_SPIN_PER_FRAME;
+      }
     }
     this.lastDays = days;
+    this.spin = (this.spin + applied) % TWO_PI;
     this.pickTarget.rotation.y = this.spin;
-    if (this.clouds) this.clouds.rotation.y = this.spin * CLOUD_DRIFT;
+    if (this.clouds) {
+      this.cloudSpin = (this.cloudSpin + applied * CLOUD_DRIFT) % TWO_PI;
+      this.clouds.rotation.y = this.cloudSpin;
+    }
+  }
+
+  /**
+   * Pins `object` to the surface at a planetocentric latitude/longitude so
+   * it turns with the planet. It sits on the unit sphere in body space.
+   */
+  attachToSurface(object: THREE.Object3D, latDeg: number, lonDeg: number): void {
+    // SphereGeometry puts u = 0 (longitude −180°) at local −X, so longitude 0 is at +X.
+    const lat = latDeg * DEG;
+    const phi = (lonDeg + 180) * DEG;
+    object.position.set(
+      -Math.cos(phi) * Math.cos(lat),
+      Math.sin(lat),
+      Math.sin(phi) * Math.cos(lat),
+    );
+    this.pickTarget.add(object);
+  }
+
+  /** North pole direction in world space. */
+  getPoleDirection(target: THREE.Vector3): THREE.Vector3 {
+    return target
+      .set(0, 1, 0)
+      .applyQuaternion(this.tilt.getWorldQuaternion(new THREE.Quaternion()));
   }
 
   info(days: number): InfoRow[] {
@@ -148,4 +194,13 @@ function createMaterial(data: PlanetData, seed: number): THREE.Material {
     specular: 0x333333,
     shininess: 18,
   });
+}
+
+/** Heliocentric ecliptic → scene axes (see `toScenePosition`). */
+function toScene(v: Vec3): THREE.Vector3 {
+  return new THREE.Vector3(v.x, v.z, -v.y);
+}
+
+function wrapPi(a: number): number {
+  return a - TWO_PI * Math.round(a / TWO_PI);
 }

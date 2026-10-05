@@ -3,6 +3,7 @@ import { el } from './dom';
 import { formatDate } from './format';
 
 export const SPEEDS = [
+  { label: 'Thời gian thực', days: 1 / 86_400 },
   { label: '1 giờ/giây', days: 1 / 24 },
   { label: '6 giờ/giây', days: 0.25 },
   { label: '1 ngày/giây', days: 1 },
@@ -10,7 +11,9 @@ export const SPEEDS = [
   { label: '1 tháng/giây', days: 30 },
   { label: '1 năm/giây', days: 365 },
 ] as const;
-export const DEFAULT_SPEED_INDEX = 2;
+export const DEFAULT_SPEED_INDEX = 3;
+/** Used on the beach so the light changes as slowly as in reality. */
+export const REAL_TIME_SPEED_INDEX = 0;
 
 export type ToggleName = 'orbits' | 'labels' | 'trueScale';
 
@@ -162,13 +165,15 @@ function createHelp(settings: HTMLElement, onClose: () => void): HTMLElement {
     ['Cuộn chuột / chụm 2 ngón', 'Zoom'],
     ['Chuột phải / kéo 2 ngón', 'Di chuyển (khi không bám theo thiên thể)'],
     ['Bấm vào thiên thể hoặc tên', 'Bay tới và xem thông tin'],
+    ['Bấm "🏖 Gia đình" (trên Trái Đất)', 'Zoom xuống gia đình ở biển; zoom ra hết cỡ để quay lại'],
     ['0 – 9', 'Chọn Mặt Trời, hành tinh, Mặt Trăng', true],
+    ['G', 'Zoom xuống gia đình ở biển Mỹ Khê', true],
     ['Space', 'Tạm dừng / chạy', true],
     ['+ / −', 'Tăng / giảm tốc độ', true],
     ['O · L · T', 'Quỹ đạo · Nhãn · Tỉ lệ thật', true],
     ['R', 'Về toàn cảnh', true],
     ['Q', 'Đổi chất lượng đồ hoạ', true],
-    ['Esc', 'Bỏ chọn', true],
+    ['Esc', 'Bỏ chọn · từ bãi biển: quay lại không gian', true],
   ];
   const close = el(
     'button',

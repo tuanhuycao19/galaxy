@@ -13,6 +13,8 @@ export class Picker {
   private readonly ndc = new THREE.Vector2();
   private readonly tmp = new THREE.Vector3();
   private down: { x: number; y: number; time: number } | null = null;
+  /** Off while another scene (the beach) owns the canvas. */
+  enabled = true;
 
   constructor(
     private readonly element: HTMLElement,
@@ -26,7 +28,7 @@ export class Picker {
     element.addEventListener('pointerup', (e) => {
       const down = this.down;
       this.down = null;
-      if (!e.isPrimary || !down) return;
+      if (!e.isPrimary || !down || !this.enabled) return;
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
       if (moved > CLICK_SLOP_PX || performance.now() - down.time > CLICK_MS) return;
       const body = this.pick(e.clientX, e.clientY);

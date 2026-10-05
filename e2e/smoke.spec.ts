@@ -99,3 +99,26 @@ test.describe('mobile layout', () => {
     expect(info!.y + info!.height).toBeLessThanOrEqual(toolbar!.y);
   });
 });
+
+test('zooms from space down to the family on the beach and back', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = await open(page);
+  const html = page.locator('html');
+
+  await page.locator('.body-list__button', { hasText: 'Gia đình ở biển' }).click();
+  await expect(html).toHaveAttribute('data-view', 'diving');
+  await expect(page.locator('.info-panel__title')).toContainText('Mỹ Khê');
+  await expect(page.locator('.toolbar__speed-label')).toHaveText('Thời gian thực');
+
+  await expect(html).toHaveAttribute('data-view', 'surface', { timeout: 90_000 });
+  await expect(page.locator('.info-panel')).toContainText('Giờ địa phương');
+  // Space labels are hidden on the beach.
+  await expect(page.locator('.labels')).toBeHidden();
+  const shot = await page.locator('#app canvas').screenshot();
+  expect(shot.byteLength).toBeGreaterThan(20_000);
+
+  await page.locator('.toolbar .button', { hasText: 'Toàn cảnh' }).click();
+  await expect(html).toHaveAttribute('data-view', 'space', { timeout: 60_000 });
+  await expect(page.locator('.toolbar__speed-label')).toHaveText('1 ngày/giây');
+  expect(errors).toEqual([]);
+});
